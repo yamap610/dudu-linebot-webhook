@@ -58,7 +58,7 @@ function getTitleText(page, propName) {
   return texts.length > 0 ? texts[0].plain_text : '（無標題）';
 }
 
-// ── 繳費提醒（7天內） ──────────────────────
+// ── 繳費提醒（已逾期 + 未來7天內） ──────────
 async function getBills() {
   const now = new Date();
   const twMs = now.getTime() + 8 * 60 * 60 * 1000; // 轉台灣時間
@@ -70,7 +70,9 @@ async function getBills() {
     sorts: [{ property: '下次繳費', direction: 'ascending' }],
   });
 
-  const lines = [];
+  const overdue = [];
+  const upcoming = [];
+
   for (const p of results) {
     const name = getTitleText(p, '名稱');
     const formulaProp = p.properties['下次繳費'] || {};
@@ -82,15 +84,23 @@ async function getBills() {
 
     const billDate = new Date(dateStr.slice(0, 10) + 'T00:00:00Z');
     if (isNaN(billDate.getTime())) continue;
-    if (!(billDate >= today && billDate <= oneWeek)) continue;
+    if (billDate > oneWeek) continue; // 超過未來7天的不管
 
     const priceProp = p.properties['價格'] || {};
     const price = priceProp.number;
     const priceStr = price ? `$${price.toLocaleString()}` : '';
     const mmdd = `${String(billDate.getUTCMonth() + 1).padStart(2, '0')}/${String(billDate.getUTCDate()).padStart(2, '0')}`;
-    lines.push(`▪️ ${name} ${mmdd} ${priceStr}`.trim());
+
+    if (billDate < today) {
+      // 已逾期：計算逾期天數並標註
+      const daysLate = Math.round((today.getTime() - billDate.getTime()) / (24 * 60 * 60 * 1000));
+      overdue.push(`🔴 ${name} ${mmdd} ${priceStr}（已逾期${daysLate}天）`.trim());
+    } else {
+      upcoming.push(`▪️ ${name} ${mmdd} ${priceStr}`.trim());
+    }
   }
-  return lines;
+
+  return { overdue, upcoming };
 }
 
 // ── 待買 / 待辦（共用邏輯） ─────────────────
@@ -130,9 +140,19 @@ async function getTodosByType(attrName) {
 
 // ── 組合各種回覆訊息 ──────────────────────
 async function buildBillsMessage() {
-  const bills = await getBills();
-  let msg = '📊 7天內繳費提醒\n';
-  msg += bills.length ? bills.join('\n') : '▪️ 這幾天沒有到期帳單';
+  const { overdue, upcoming } = await getBills();
+  let msg = '📊 繳費提醒\n';
+  if (overdue.length === 0 && upcoming.length === 0) {
+    msg += '▪️ 目前沒有需要注意的帳單';
+    return msg;
+  }
+  if (overdue.length > 0) {
+    msg += '【已逾期】\n' + overdue.join('\n');
+  }
+  if (upcoming.length > 0) {
+    if (overdue.length > 0) msg += '\n\n';
+    msg += '【未來7天內】\n' + upcoming.join('\n');
+  }
   return msg;
 }
 
