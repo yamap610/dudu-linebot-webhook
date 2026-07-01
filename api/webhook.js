@@ -46,6 +46,9 @@ async function queryDb(dbId, body) {
     body: JSON.stringify(body),
   });
   const data = await res.json();
+  if (data.object === 'error') {
+    throw new Error(`Notion錯誤 [${data.code}]: ${data.message}`);
+  }
   return data.results || [];
 }
 
@@ -222,7 +225,7 @@ module.exports = async (req, res) => {
           replyText = buildHelpMessage();
         }
       } catch (err) {
-        replyText = '查詢時發生錯誤，稍後再試一次 🙏';
+        replyText = `⚠️ 診斷訊息：\n${err.message}`;
         console.error(err);
       }
 
