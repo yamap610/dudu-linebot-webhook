@@ -64,7 +64,7 @@ async function getBills() {
   const twMs = now.getTime() + 8 * 60 * 60 * 1000; // 轉台灣時間
   const tw = new Date(twMs);
   const today = new Date(Date.UTC(tw.getUTCFullYear(), tw.getUTCMonth(), tw.getUTCDate()));
-  const oneWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const oneWeek = new Date(today.getTime() + 8 * 24 * 60 * 60 * 1000); // +8天，對齊Notion公式顯示的「倒數7天」
 
   const results = await queryDb(BILL_DB_ID, {
     sorts: [{ property: '下次繳費', direction: 'ascending' }],
@@ -94,7 +94,7 @@ async function getBills() {
     if (billDate < today) {
       // 已逾期：計算逾期天數並標註
       const daysLate = Math.round((today.getTime() - billDate.getTime()) / (24 * 60 * 60 * 1000));
-      overdue.push(`🔴 ${name} ${mmdd} ${priceStr}（已逾期${daysLate}天）`.trim());
+      overdue.push(`⚠️ ${name} ${mmdd} ${priceStr}（已逾期${daysLate}天）`.trim());
     } else {
       upcoming.push(`▪️ ${name} ${mmdd} ${priceStr}`.trim());
     }
@@ -239,7 +239,7 @@ module.exports = async (req, res) => {
           replyText = await buildBuyMessage();
         } else if (text.includes('待辦')) {
           replyText = await buildTodoMessage();
-        } else if (text.includes('繳費')) {
+        } else if (text.includes('繳費') || text.includes('待繳')) {
           replyText = await buildBillsMessage();
         } else if (text.includes('幫助') || text.toLowerCase() === 'help') {
           replyText = buildHelpMessage();
