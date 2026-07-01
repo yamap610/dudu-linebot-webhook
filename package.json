@@ -1,0 +1,6 @@
+{
+  "name": "dudu-linebot-webhook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "嘟嘟一家 LINE Bot - 接收訊息並依關鍵字回覆待買/待辦/繳費清單"
+}
