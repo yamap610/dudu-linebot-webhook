@@ -27,10 +27,13 @@ test('行程與待繳合併為一則早安訊息', () => {
     events: [{ summary: '看牙醫', start: { dateTime: '2026-07-14T09:00:00+08:00' }, end: { dateTime: '2026-07-14T10:00:00+08:00' } }],
     bills: [{ name: '網路費', dueDate: '2026-07-16', price: 999 }],
   });
-  assert.match(message, /今日行程/);
+  assert.match(message, /今日小叮嚀/);
+  assert.match(message, /【 行程 】/);
   assert.match(message, /看牙醫/);
   assert.match(message, /待繳提醒/);
-  assert.match(message, /網路費（2 天後到期）・\$999/);
+  assert.match(message, /▪️ 🗓️ 其他｜09:00–10:00 看牙醫/);
+  assert.match(message, /▪️ 💳 網路費（2 天後到期）｜\$999/);
+  assert.doesNotMatch(message, /•|・/);
 });
 
 test('沒有行程與待繳時不推播', () => {
