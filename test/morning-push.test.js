@@ -1,9 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { getUpcomingBills, buildMorningMessage } = require('../lib/morning-push');
+const { getUpcomingBills, buildMorningMessage, createMorningMessage } = require('../lib/morning-push');
 
-function bill(name, dueDate, price = 100, paused = false) {
-  return { properties: {
+function bill(name, dueDate, price = 100, paused = false, id = name) {
+  return { id, properties: {
     名稱: { type: 'title', title: [{ plain_text: name }] },
     下次繳費: { formula: { type: 'string', string: dueDate } },
     價格: { number: price },
@@ -39,4 +39,23 @@ test('行程與待繳合併為一則早安訊息', () => {
 
 test('沒有行程與待繳時不推播', () => {
   assert.equal(buildMorningMessage({ today: '2026-07-14', events: [], bills: [] }), null);
+});
+
+test('早晨待繳項目提供直接登記已繳按鈕', async () => {
+  const notion = { queryAll: async () => [bill('網路費', '2026-07-16', 999, false, 'bill-page-id')] };
+  const calendarClient = { listEvents: async () => [] };
+  const message = await createMorningMessage({
+    notion,
+    config: { billDbId: 'db' },
+    now: new Date('2026-07-14T01:00:00Z'),
+    calendarClient,
+    weatherData: null,
+  });
+  assert.equal(message.type, 'text');
+  assert.deepEqual(message.quickReply.items[0].action, {
+    type: 'postback',
+    label: '登記已繳｜網路費',
+    data: 'action=paid_amount&id=bill-page-id',
+    displayText: '登記已繳｜網路費',
+  });
 });
