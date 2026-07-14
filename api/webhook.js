@@ -50,7 +50,7 @@ async function processEvent(event, notion, config) {
   if (event.type === 'message' && event.message?.type === 'text') {
     command = parseTextCommand(event.message.text);
   } else if (event.type === 'postback') {
-    command = parsePostback(event.postback?.data);
+    command = { ...parsePostback(event.postback?.data), ...(event.postback?.params || {}) };
   } else if (event.type === 'follow') {
     command = { action: 'menu' };
   }
