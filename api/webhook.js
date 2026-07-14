@@ -1,259 +1,117 @@
 const crypto = require('crypto');
+const {
+  getConfig,
+  validateConfig,
+  createNotionClient,
+  parseTextCommand,
+  parsePostback,
+  handleCommand,
+} = require('../lib/bot');
 
-// Vercel 設定：關掉自動 body parser，因為驗證 LINE 簽章需要用「原始」的請求內容
 module.exports.config = {
-  api: {
-    bodyParser: false,
-  },
+  api: { bodyParser: false },
 };
 
-// ── 環境變數 ──────────────────────────────
-const NOTION_TOKEN = process.env.NOTION_TOKEN;
-const LINE_TOKEN = process.env.LINE_TOKEN;
-const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
-const BILL_DB_ID = process.env.BILL_DB_ID;
-const TODO_DB_ID = process.env.TODO_DB_ID;
-
-const notionHeaders = {
-  Authorization: `Bearer ${NOTION_TOKEN}`,
-  'Content-Type': 'application/json',
-  'Notion-Version': '2022-06-28',
-};
-
-// ── 工具函式 ──────────────────────────────
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', (chunk) => { data += chunk; });
-    req.on('end', () => resolve(data));
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }
 
 function verifySignature(rawBody, signature, channelSecret) {
-  if (!signature) return false;
-  const hash = crypto
-    .createHmac('SHA256', channelSecret)
-    .update(rawBody)
-    .digest('base64');
-  return hash === signature;
+  if (!signature || !channelSecret) return false;
+  const expected = crypto.createHmac('SHA256', channelSecret).update(rawBody).digest();
+  let received;
+  try { received = Buffer.from(signature, 'base64'); } catch { return false; }
+  return received.length === expected.length && crypto.timingSafeEqual(received, expected);
 }
 
-async function queryDb(dbId, body) {
-  const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
-    method: 'POST',
-    headers: notionHeaders,
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (data.object === 'error') {
-    throw new Error(`Notion錯誤 [${data.code}]: ${data.message}`);
-  }
-  return data.results || [];
-}
-
-function getTitleText(page, propName) {
-  const prop = page.properties[propName];
-  const texts = (prop && prop.title) || [];
-  return texts.length > 0 ? texts[0].plain_text : '（無標題）';
-}
-
-// ── 繳費提醒（已逾期 + 未來7天內） ──────────
-async function getBills() {
-  const now = new Date();
-  const twMs = now.getTime() + 8 * 60 * 60 * 1000; // 轉台灣時間
-  const tw = new Date(twMs);
-  const today = new Date(Date.UTC(tw.getUTCFullYear(), tw.getUTCMonth(), tw.getUTCDate()));
-  const oneWeek = new Date(today.getTime() + 8 * 24 * 60 * 60 * 1000); // +8天，對齊Notion公式顯示的「倒數7天」
-
-  const results = await queryDb(BILL_DB_ID, {
-    sorts: [{ property: '下次繳費', direction: 'ascending' }],
-  });
-
-  const overdue = [];
-  const upcoming = [];
-
-  for (const p of results) {
-    const name = getTitleText(p, '名稱');
-    const formulaProp = p.properties['下次繳費'] || {};
-    const formulaVal = formulaProp.formula || {};
-    let dateStr = '';
-    if (formulaVal.type === 'string') dateStr = formulaVal.string || '';
-    else if (formulaVal.type === 'date') dateStr = (formulaVal.date && formulaVal.date.start) || '';
-    if (!dateStr) continue;
-
-    const billDate = new Date(dateStr.slice(0, 10) + 'T00:00:00Z');
-    if (isNaN(billDate.getTime())) continue;
-    if (billDate > oneWeek) continue; // 超過未來7天的不管
-
-    const priceProp = p.properties['價格'] || {};
-    const price = priceProp.number;
-    const priceStr = price ? `$${price.toLocaleString()}` : '';
-    const mmdd = `${String(billDate.getUTCMonth() + 1).padStart(2, '0')}/${String(billDate.getUTCDate()).padStart(2, '0')}`;
-
-    if (billDate < today) {
-      // 已逾期：計算逾期天數並標註
-      const daysLate = Math.round((today.getTime() - billDate.getTime()) / (24 * 60 * 60 * 1000));
-      overdue.push(`⚠️ ${name} ${mmdd} ${priceStr}（已逾期${daysLate}天）`.trim());
-    } else {
-      upcoming.push(`▪️ ${name} ${mmdd} ${priceStr}`.trim());
-    }
-  }
-
-  return { overdue, upcoming };
-}
-
-// ── 待買 / 待辦（共用邏輯） ─────────────────
-async function getTodosByType(attrName) {
-  const results = await queryDb(TODO_DB_ID, {
-    filter: {
-      and: [
-        { property: '完成', checkbox: { equals: false } },
-        { property: '屬性', select: { equals: attrName } },
-      ],
-    },
-    sorts: [{ property: '優先級', direction: 'ascending' }],
-  });
-
-  const priorityTag = { 急: '[急]', 中: '[中]', 緩: '[緩]' };
-  const urgent = [];
-  let others = 0;
-
-  for (const p of results) {
-    const nameProp = p.properties['項目名稱'] || {};
-    const texts = nameProp.title || [];
-    const name = texts.length > 0 ? texts[0].plain_text : '（無標題）';
-
-    const priProp = p.properties['優先級'] || {};
-    const priSel = priProp.select;
-    const priName = priSel ? priSel.name : '';
-    const tag = priorityTag[priName] || '';
-
-    if (priName === '急') {
-      urgent.push(`▪️ ${tag} ${name}`.trim());
-    } else {
-      others += 1;
-    }
-  }
-  return { urgent, others };
-}
-
-// ── 組合各種回覆訊息 ──────────────────────
-async function buildBillsMessage() {
-  const { overdue, upcoming } = await getBills();
-  let msg = '📊 繳費提醒\n';
-  if (overdue.length === 0 && upcoming.length === 0) {
-    msg += '▪️ 目前沒有需要注意的帳單';
-    return msg;
-  }
-  if (overdue.length > 0) {
-    msg += '【已逾期】\n' + overdue.join('\n');
-  }
-  if (upcoming.length > 0) {
-    if (overdue.length > 0) msg += '\n\n';
-    msg += '【未來7天內】\n' + upcoming.join('\n');
-  }
-  return msg;
-}
-
-async function buildBuyMessage() {
-  const { urgent, others } = await getTodosByType('🛒 待買清單');
-  let msg = '🛒 待買清單\n';
-  msg += urgent.length ? urgent.join('\n') : '▪️ 沒有急需購買的項目';
-  if (others > 0) msg += `\n（另有 ${others} 項待購）`;
-  return msg;
-}
-
-async function buildTodoMessage() {
-  const { urgent, others } = await getTodosByType('✅ 待辦事項');
-  let msg = '✅ 待辦事項\n';
-  msg += urgent.length ? urgent.join('\n') : '▪️ 沒有急需處理的事項';
-  if (others > 0) msg += `\n（另有 ${others} 項待辦）`;
-  return msg;
-}
-
-function buildHelpMessage() {
-  return (
-    '嘟嘟一家小幫手 🐰\n\n' +
-    '輸入「待買」→ 查看待買清單\n' +
-    '輸入「待辦」→ 查看待辦事項\n' +
-    '輸入「繳費」→ 查看7天內繳費提醒'
-  );
-}
-
-// ── 回覆 LINE ──────────────────────────────
-async function replyLine(replyToken, text) {
-  await fetch('https://api.line.me/v2/bot/message/reply', {
+async function replyLine(replyToken, messages, lineToken, fetchImpl = fetch) {
+  if (!replyToken || !messages?.length) return;
+  const response = await fetchImpl('https://api.line.me/v2/bot/message/reply', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${LINE_TOKEN}`,
+      Authorization: `Bearer ${lineToken}`,
     },
-    body: JSON.stringify({
-      replyToken,
-      messages: [{ type: 'text', text }],
-    }),
+    body: JSON.stringify({ replyToken, messages: messages.slice(0, 5) }),
   });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`LINE Reply API ${response.status}: ${detail.slice(0, 300)}`);
+  }
 }
 
-// ── 主要進入點 ──────────────────────────────
-module.exports = async (req, res) => {
-  // LINE Developers 後台驗證 Webhook 時，會送一個沒有事件內容的請求，
-  // 只要回 200 就算成功，不用真的處理內容
+async function processEvent(event, notion, config) {
+  let command = null;
+  if (event.type === 'message' && event.message?.type === 'text') {
+    command = parseTextCommand(event.message.text);
+  } else if (event.type === 'postback') {
+    command = parsePostback(event.postback?.data);
+  } else if (event.type === 'follow') {
+    command = { action: 'menu' };
+  }
+  if (!command) return;
+
+  try {
+    const messages = await handleCommand(command, notion, config);
+    await replyLine(event.replyToken, messages, config.lineToken);
+  } catch (error) {
+    console.error('處理 LINE 事件失敗', {
+      eventType: event.type,
+      action: command.action,
+      message: error.message,
+    });
+    await replyLine(event.replyToken, [{
+      type: 'text',
+      text: '處理時發生錯誤，資料沒有異動。請稍後再試一次 🙏',
+      quickReply: { items: [{ type: 'action', action: { type: 'postback', label: '🏠 主選單', data: 'action=menu' } }] },
+    }], config.lineToken).catch((replyError) => console.error('錯誤訊息回覆失敗', replyError.message));
+  }
+}
+
+module.exports = async function webhook(req, res) {
   if (req.method !== 'POST') {
     res.status(200).send('ok');
+    return;
+  }
+
+  const config = getConfig();
+  try {
+    validateConfig(config);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('configuration error');
     return;
   }
 
   let rawBody;
   try {
     rawBody = await getRawBody(req);
-  } catch (err) {
+  } catch {
     res.status(400).send('bad request');
     return;
   }
 
-  const signature = req.headers['x-line-signature'];
-  if (!verifySignature(rawBody, signature, LINE_CHANNEL_SECRET)) {
+  if (!verifySignature(rawBody, req.headers['x-line-signature'], config.channelSecret)) {
     res.status(401).send('invalid signature');
     return;
   }
 
   let body;
   try {
-    body = JSON.parse(rawBody || '{}');
-  } catch (err) {
-    res.status(200).send('ok'); // 驗證請求 body 可能是空的，也要回 200
+    body = JSON.parse(rawBody.toString('utf8') || '{}');
+  } catch {
+    res.status(400).send('invalid json');
     return;
   }
 
-  const events = body.events || [];
-
-  for (const event of events) {
-    if (event.type === 'message' && event.message && event.message.type === 'text') {
-      const text = (event.message.text || '').trim();
-      let replyText = null;
-
-      try {
-        if (text.includes('待買')) {
-          replyText = await buildBuyMessage();
-        } else if (text.includes('待辦')) {
-          replyText = await buildTodoMessage();
-        } else if (text.includes('繳費') || text.includes('待繳')) {
-          replyText = await buildBillsMessage();
-        } else if (text.includes('幫助') || text.toLowerCase() === 'help') {
-          replyText = buildHelpMessage();
-        }
-      } catch (err) {
-        replyText = `⚠️ 診斷訊息：\n${err.message}`;
-        console.error(err);
-      }
-
-      if (replyText) {
-        await replyLine(event.replyToken, replyText);
-      }
-    }
-  }
-
+  const notion = createNotionClient(config);
+  await Promise.all((body.events || []).map((event) => processEvent(event, notion, config)));
   res.status(200).send('ok');
 };
+
+module.exports._test = { getRawBody, verifySignature, replyLine, processEvent };
