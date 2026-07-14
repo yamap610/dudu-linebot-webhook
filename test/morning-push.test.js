@@ -31,9 +31,10 @@ test('行程與待繳合併為一則早安訊息', () => {
   assert.match(message, /【 行程 】/);
   assert.match(message, /看牙醫/);
   assert.match(message, /待繳提醒/);
-  assert.match(message, /▪️ 🗓️ 其他｜09:00–10:00 看牙醫/);
-  assert.match(message, /▪️ 💳 網路費（2 天後到期）｜\$999/);
+  assert.match(message, /🗓️ 其他｜09:00–10:00 看牙醫/);
+  assert.match(message, /💳 網路費（2 天後到期） \$999/);
   assert.doesNotMatch(message, /•|・/);
+  assert.doesNotMatch(message, /▪️/);
 });
 
 test('沒有行程與待繳時不推播', () => {
