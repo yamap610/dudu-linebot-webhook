@@ -11,16 +11,3 @@
     "node": ">=18"
   }
 }
-{
-  "name": "dudu-linebot-webhook",
-  "version": "1.0.0",
-  "private": true,
-  "description": "嘟嘟一家 LINE Bot - 小百科、待辦、待買與繳費按鈕選單",
-  "scripts": {
-    "test": "node --test",
-    "rich-menu:setup": "node scripts/setup-rich-menu.js"
-  },
-  "engines": {
-    "node": ">=18"
-  }
-}
