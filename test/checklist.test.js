@@ -26,13 +26,16 @@ function todoBlock(checked = false) {
   };
 }
 
-test('待買有內容 checklist 時顯示查看清單', async () => {
+test('待買有內容 checklist 時顯示 Notion 開啟清單連結', async () => {
   const notion = {
     queryAll: async () => [page()],
     getBlockChildren: async () => ({ results: [todoBlock()] }),
   };
   const [message] = await handleCommand({ action: 'list', type: 'buy' }, notion, { todoDbId: 'db' });
-  assert.match(JSON.stringify(message), /查看清單/);
+  const output = JSON.stringify(message);
+  assert.match(output, /開啟清單/);
+  assert.match(output, /"type":"uri"/);
+  assert.match(output, /https:\/\/notion\.so/);
 });
 
 test('沒有 checklist 時只保留完成按鈕', async () => {
@@ -42,7 +45,7 @@ test('沒有 checklist 時只保留完成按鈕', async () => {
   };
   const [message] = await handleCommand({ action: 'list', type: 'buy' }, notion, { todoDbId: 'db' });
   const output = JSON.stringify(message);
-  assert.doesNotMatch(output, /查看清單/);
+  assert.doesNotMatch(output, /開啟清單/);
   assert.match(output, /已買到/);
 });
 
