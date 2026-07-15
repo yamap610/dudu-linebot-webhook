@@ -6,7 +6,7 @@ const { handleCommand } = require('../lib/bot');
 const PAGE_ID = '11111111-1111-1111-1111-111111111111';
 const BLOCK_ID = '22222222-2222-2222-2222-222222222222';
 
-function page(name = '全聯待買') {
+function page(name = '全聯待買', hasDetails = true) {
   return {
     id: PAGE_ID,
     url: `https://notion.so/${PAGE_ID}`,
@@ -15,6 +15,7 @@ function page(name = '全聯待買') {
       優先級: { select: { name: '急' } },
       類別: { select: { name: '食品' } },
       說明: { rich_text: [{ plain_text: '要買的東西在裡面' }] },
+      內含明細: { checkbox: hasDetails },
     },
   };
 }
@@ -29,7 +30,7 @@ function todoBlock(checked = false) {
 test('待買有內容 checklist 時顯示 Notion 開啟清單連結', async () => {
   const notion = {
     queryAll: async () => [page()],
-    getBlockChildren: async () => ({ results: [todoBlock()] }),
+    getBlockChildren: async () => assert.fail('清單頁不應逐筆讀取 Notion 內容'),
   };
   const [message] = await handleCommand({ action: 'list', type: 'buy' }, notion, { todoDbId: 'db' });
   const output = JSON.stringify(message);
@@ -40,8 +41,8 @@ test('待買有內容 checklist 時顯示 Notion 開啟清單連結', async () =
 
 test('沒有 checklist 時只保留完成按鈕', async () => {
   const notion = {
-    queryAll: async () => [page('買牛奶')],
-    getBlockChildren: async () => ({ results: [] }),
+    queryAll: async () => [page('買牛奶', false)],
+    getBlockChildren: async () => assert.fail('清單頁不應逐筆讀取 Notion 內容'),
   };
   const [message] = await handleCommand({ action: 'list', type: 'buy' }, notion, { todoDbId: 'db' });
   const output = JSON.stringify(message);
