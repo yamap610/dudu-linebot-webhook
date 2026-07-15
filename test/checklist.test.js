@@ -46,7 +46,7 @@ test('沒有 checklist 時只保留完成按鈕', async () => {
   assert.match(output, /已買到/);
 });
 
-test('LINE 勾選 checklist 後同步更新 Notion 並回傳新版清單', async () => {
+test('LINE 勾選 checklist 後靜默同步 Notion，不堆疊新卡片', async () => {
   let checked = false;
   const notion = {
     getPage: async () => page(),
@@ -56,11 +56,20 @@ test('LINE 勾選 checklist 後同步更新 Notion 並回傳新版清單', async
       checked = body.to_do.checked;
     },
   };
-  const [message] = await handleCommand({
+  const messages = await handleCommand({
     action: 'checklist_toggle', type: 'buy', id: PAGE_ID, block: BLOCK_ID, checked: '1', page: '1',
   }, notion, {});
   assert.equal(checked, true);
-  assert.match(JSON.stringify(message), /☑ 雞蛋/);
+  assert.deepEqual(messages, []);
+});
+
+test('內容清單提供手動重新整理按鈕', async () => {
+  const notion = {
+    getPage: async () => page(),
+    getBlockChildren: async () => ({ results: [todoBlock()] }),
+  };
+  const [message] = await handleCommand({ action: 'checklist', type: 'buy', id: PAGE_ID, page: '1' }, notion, {});
+  assert.match(JSON.stringify(message), /重新整理清單/);
 });
 
 test('拒絕更新不屬於該頁面的 block', async () => {
