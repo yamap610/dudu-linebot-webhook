@@ -69,7 +69,12 @@ test('內容清單提供手動重新整理按鈕', async () => {
     getBlockChildren: async () => ({ results: [todoBlock()] }),
   };
   const [message] = await handleCommand({ action: 'checklist', type: 'buy', id: PAGE_ID, page: '1' }, notion, {});
-  assert.match(JSON.stringify(message), /重新整理清單/);
+  const output = JSON.stringify(message);
+  assert.match(output, /重新整理清單/);
+  assert.match(output, /點選後會直接同步/);
+  const selectAction = message.contents.body.contents.find((component) => component.type === 'box');
+  assert.equal(selectAction.contents.at(-1).type, 'text');
+  assert.equal(selectAction.contents.at(-1).size, 'xs');
 });
 
 test('拒絕更新不屬於該頁面的 block', async () => {
