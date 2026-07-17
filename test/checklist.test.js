@@ -93,3 +93,24 @@ test('拒絕更新不屬於該頁面的 block', async () => {
     /找不到這個清單項目/,
   );
 });
+
+test('LINE 新增待辦可選日期並寫入 Notion', async () => {
+  const [dateMessage] = await handleCommand({
+    action: 'add', type: 'todo', priority: '急', name: '回桃園待辦',
+  }, {}, {});
+  assert.match(JSON.stringify(dateMessage), /預定作業日期/);
+  assert.match(JSON.stringify(dateMessage), /datetimepicker/);
+
+  const [descriptionMessage] = await handleCommand({
+    action: 'add_date', type: 'todo', priority: '急', name: '回桃園待辦', date: '2026-08-01',
+  }, {}, {});
+  assert.match(JSON.stringify(descriptionMessage), /2026-08-01/);
+
+  let created;
+  const notion = { createPage: async (_db, properties) => { created = properties; return { id: PAGE_ID }; } };
+  const [createdMessage] = await handleCommand({
+    action: 'add_create', type: 'todo', priority: '急', name: '回桃園待辦', date: '2026-08-01',
+  }, notion, { todoDbId: 'db' });
+  assert.deepEqual(created['預定作業日期'], { date: { start: '2026-08-01' } });
+  assert.match(createdMessage.text, /預定作業日期：2026-08-01/);
+});

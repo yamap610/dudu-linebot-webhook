@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { getUpcomingBills, buildMorningMessage, createMorningMessage } = require('../lib/morning-push');
+const {
+  getUpcomingBills, getTodoReminders, shouldRemindTodo, buildMorningMessage, createMorningMessage,
+} = require('../lib/morning-push');
 
 function bill(name, dueDate, price = 100, paused = false, id = name) {
   return { id, properties: {
@@ -39,6 +41,36 @@ test('行程與待繳合併為一則早安訊息', () => {
 
 test('沒有行程與待繳時不推播', () => {
   assert.equal(buildMorningMessage({ today: '2026-07-14', events: [], bills: [] }), null);
+});
+
+test('待辦依優先級在指定日期提醒', () => {
+  assert.equal(shouldRemindTodo('急', '2026-08-01', '2026-07-29'), true);
+  assert.equal(shouldRemindTodo('急', '2026-08-01', '2026-07-30'), false);
+  assert.equal(shouldRemindTodo('中', '2026-08-01', '2026-07-31'), true);
+  assert.equal(shouldRemindTodo('緩', '2026-08-01', '2026-07-31'), false);
+  assert.equal(shouldRemindTodo('緩', '2026-08-01', '2026-08-01'), true);
+  assert.equal(shouldRemindTodo('急', '', '2026-08-01'), true);
+  assert.equal(shouldRemindTodo('中', '', '2026-08-01'), false);
+});
+
+test('只取得未完成且今天需要提醒的待辦待買', async () => {
+  const todo = (name, priority, date, type = '✅ 待辦事項') => ({ properties: {
+    項目名稱: { type: 'title', title: [{ plain_text: name }] },
+    屬性: { select: { name: type } },
+    優先級: { select: { name: priority } },
+    預定作業日期: { date: date ? { start: date } : null },
+  } });
+  const notion = { queryAll: async () => [
+    todo('回桃園待辦', '急', '2026-08-01'),
+    todo('一般待買', '中', '', '🛒 待買清單'),
+    todo('明天要買', '中', '2026-07-30', '🛒 待買清單'),
+  ] };
+  const result = await getTodoReminders(notion, 'db', '2026-07-29');
+  assert.deepEqual(result.map((item) => item.name), ['回桃園待辦', '明天要買']);
+  const message = buildMorningMessage({ today: '2026-07-29', todos: result });
+  assert.match(message, /待辦／待買提醒/);
+  assert.match(message, /回桃園待辦（3 天後）/);
+  assert.match(message, /明天要買（明天）/);
 });
 
 test('早晨待繳項目提供直接登記已繳按鈕', async () => {
