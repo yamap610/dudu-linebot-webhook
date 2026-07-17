@@ -114,3 +114,33 @@ test('LINE 新增待辦可選日期並寫入 Notion', async () => {
   assert.deepEqual(created['預定作業日期'], { date: { start: '2026-08-01' } });
   assert.match(createdMessage.text, /預定作業日期：2026-08-01/);
 });
+
+test('LINE 可編輯優先級、日期及清除日期', async () => {
+  let current = page('回桃園待辦');
+  current.properties['預定作業日期'] = { date: { start: '2026-08-01' } };
+  const notion = {
+    getPage: async () => current,
+    getBlockChildren: async () => ({ results: [] }),
+    updatePage: async (_id, properties) => {
+      if (properties['優先級']) current.properties['優先級'] = properties['優先級'];
+      if (Object.hasOwn(properties, '預定作業日期')) current.properties['預定作業日期'] = properties['預定作業日期'];
+    },
+  };
+  const [menu] = await handleCommand({ action: 'edit_reminder', type: 'todo', id: PAGE_ID }, notion, {});
+  assert.match(menu.text, /預定作業日期：2026-08-01/);
+
+  const [priorityResult] = await handleCommand({
+    action: 'edit_priority', type: 'todo', id: PAGE_ID, priority: '中',
+  }, notion, {});
+  assert.match(priorityResult.text, /目前優先級：中/);
+
+  const [dateResult] = await handleCommand({
+    action: 'edit_date', type: 'todo', id: PAGE_ID, date: '2026-08-05',
+  }, notion, {});
+  assert.match(dateResult.text, /預定作業日期：2026-08-05/);
+
+  const [clearResult] = await handleCommand({
+    action: 'edit_date', type: 'todo', id: PAGE_ID, clear: '1',
+  }, notion, {});
+  assert.match(clearResult.text, /預定作業日期：未設定/);
+});

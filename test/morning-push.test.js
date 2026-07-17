@@ -49,6 +49,9 @@ test('待辦依優先級在指定日期提醒', () => {
   assert.equal(shouldRemindTodo('中', '2026-08-01', '2026-07-31'), true);
   assert.equal(shouldRemindTodo('緩', '2026-08-01', '2026-07-31'), false);
   assert.equal(shouldRemindTodo('緩', '2026-08-01', '2026-08-01'), true);
+  assert.equal(shouldRemindTodo('急', '2026-08-01', '2026-08-02'), true);
+  assert.equal(shouldRemindTodo('中', '2026-08-01', '2026-08-02'), true);
+  assert.equal(shouldRemindTodo('緩', '2026-08-01', '2026-08-02'), true);
   assert.equal(shouldRemindTodo('急', '', '2026-08-01'), true);
   assert.equal(shouldRemindTodo('中', '', '2026-08-01'), false);
 });
@@ -71,6 +74,18 @@ test('只取得未完成且今天需要提醒的待辦待買', async () => {
   assert.match(message, /待辦／待買提醒/);
   assert.match(message, /回桃園待辦（3 天後）/);
   assert.match(message, /明天要買（明天）/);
+});
+
+test('逾期未完成項目每天顯示逾期天數', async () => {
+  const notion = { queryAll: async () => [{ properties: {
+    項目名稱: { type: 'title', title: [{ plain_text: '整理行李' }] },
+    屬性: { select: { name: '✅ 待辦事項' } },
+    優先級: { select: { name: '中' } },
+    預定作業日期: { date: { start: '2026-08-01' } },
+  } }] };
+  const todos = await getTodoReminders(notion, 'db', '2026-08-03');
+  const message = buildMorningMessage({ today: '2026-08-03', todos });
+  assert.match(message, /整理行李（逾期 2 天）/);
 });
 
 test('早晨待繳項目提供直接登記已繳按鈕', async () => {
