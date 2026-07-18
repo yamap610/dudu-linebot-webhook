@@ -9,7 +9,7 @@ test('繳費選單可選擇帳單並預填更新金額指令', () => {
   };
   const billsJson = JSON.stringify(bot.billsMessage([item]));
   assert.match(billsJson, /update_amount_menu/);
-  assert.match(billsJson, /金額更新 2026\/07\/18/);
+  assert.match(billsJson, /\$999（07\/18更新）/);
   const menuJson = JSON.stringify(bot.updateAmountMenuMessage([item]));
   assert.match(menuJson, /更新金額 台灣大哥大 /);
   assert.match(menuJson, /openKeyboard/);
@@ -37,5 +37,5 @@ test('更新金額會修改 Notion 價格並回覆更新日期', async () => {
   const messages = await bot.handleCommand(parsed, notion, { billDbId: 'bill-db' });
   assert.equal(updated.id, pageId);
   assert.equal(updated.properties['價格'].number, 1380);
-  assert.match(messages[0].text, /更新日期：\d{4}\/\d{2}\/\d{2}/);
+  assert.match(messages[0].text, /更新：\d{2}\/\d{2}/);
 });
