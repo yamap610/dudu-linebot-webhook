@@ -88,6 +88,19 @@ test('逾期未完成項目每天顯示逾期天數', async () => {
   assert.match(message, /整理行李（逾期 2 天）/);
 });
 
+test('急件未設定日期時不顯示多餘文字', async () => {
+  const notion = { queryAll: async () => [{ properties: {
+    項目名稱: { type: 'title', title: [{ plain_text: '整理嬰兒用品' }] },
+    屬性: { select: { name: '✅ 待辦事項' } },
+    優先級: { select: { name: '急' } },
+    預定作業日期: { date: null },
+  } }] };
+  const todos = await getTodoReminders(notion, 'db', '2026-07-19');
+  const message = buildMorningMessage({ today: '2026-07-19', todos });
+  assert.match(message, /✅ 🔥 整理嬰兒用品/);
+  assert.doesNotMatch(message, /未設定日期/);
+});
+
 test('早晨待繳項目提供直接登記已繳按鈕', async () => {
   const notion = { queryAll: async () => [bill('網路費', '2026-07-16', 999, false, 'bill-page-id')] };
   const calendarClient = { listEvents: async () => [] };
