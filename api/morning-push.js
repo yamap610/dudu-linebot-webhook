@@ -7,7 +7,8 @@ function authorized(req, secret) {
 }
 
 module.exports = async function morningPush(req, res) {
-  if (req.method !== 'POST') return res.status(405).send('method not allowed');
+  // Vercel Cron 使用 GET；保留 POST 供人工測試或既有外部排程呼叫。
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).send('method not allowed');
   if (!authorized(req, process.env.CRON_SECRET)) return res.status(401).send('unauthorized');
 
   try {
