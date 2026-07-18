@@ -106,3 +106,34 @@ test('早晨待繳項目提供直接登記已繳按鈕', async () => {
     displayText: '登記已繳｜網路費',
   });
 });
+
+test('21:00 預告以明天為基準合併行程、待繳與待辦', async () => {
+  const todoPage = { properties: {
+    項目名稱: { type: 'title', title: [{ plain_text: '回桃園待辦' }] },
+    屬性: { select: { name: '✅ 待辦事項' } },
+    優先級: { select: { name: '急' } },
+    預定作業日期: { date: { start: '2026-07-19' } },
+  } };
+  const notion = { queryAll: async (dbId) => (dbId === 'todo-db'
+    ? [todoPage]
+    : [bill('信用卡費', '2026-07-20', 3500, false, 'bill-id')]) };
+  const calendarClient = { listEvents: async (start, end) => {
+    assert.equal(start, '2026-07-19');
+    assert.equal(end, '2026-07-20');
+    return [{ summary: '親子活動', start: { date: '2026-07-19' }, end: { date: '2026-07-20' } }];
+  } };
+  const message = await createMorningMessage({
+    notion,
+    config: { billDbId: 'bill-db', todoDbId: 'todo-db' },
+    now: new Date('2026-07-18T13:00:00Z'),
+    calendarClient,
+    weatherData: { line: '台北 26–33°C｜降雨 100%', reminder: '☂️ 明天容易下雨，出門記得帶傘喔！' },
+    dayOffset: 1,
+  });
+  assert.match(message.text, /明日小叮嚀｜7\/19/);
+  assert.match(message.text, /【 行程 】/);
+  assert.match(message.text, /【 待繳提醒｜3 天內 】/);
+  assert.match(message.text, /信用卡費（1 天後到期）/);
+  assert.match(message.text, /【 待辦／待買提醒 】/);
+  assert.match(message.text, /回桃園待辦（今天）/);
+});
