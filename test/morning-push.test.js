@@ -133,7 +133,7 @@ test('21:00 預告以明天為基準合併行程、待繳與待辦', async () =>
   assert.match(message.text, /明日小叮嚀｜7\/19/);
   assert.match(message.text, /【 行程 】/);
   assert.match(message.text, /【 待繳提醒｜3 天內 】/);
-  assert.match(message.text, /信用卡費（1 天後到期）/);
+  assert.match(message.text, /信用卡費（2 天後到期）/);
   assert.match(message.text, /【 待辦／待買提醒 】/);
-  assert.match(message.text, /回桃園待辦（今天）/);
+  assert.match(message.text, /回桃園待辦（明天）/);
 });
