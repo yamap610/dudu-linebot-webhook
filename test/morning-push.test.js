@@ -150,3 +150,12 @@ test('21:00 預告以明天為基準合併行程、待繳與待辦', async () =>
   assert.match(message.text, /【 待辦／待買提醒 】/);
   assert.match(message.text, /回桃園待辦（明天）/);
 });
+
+test('21:00 預告沒有行程時顯示明天沒有行程', () => {
+  const message = buildMorningMessage({
+    today: '2026-07-22', labelDate: '2026-07-21', heading: '明日小叮嚀',
+    todos: [{ name: '準備用品', type: '✅ 待辦事項', priority: '急', dueDate: '2026-07-22' }],
+  });
+  assert.match(message, /明天沒有行程/);
+  assert.doesNotMatch(message, /今天沒有行程/);
+});
