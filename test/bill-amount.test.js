@@ -20,10 +20,32 @@ test('固定金額不顯示更新日，未來到期日不顯示年份', () => {
   const json = JSON.stringify(bot.billsMessage([{
     id: 'a90447cd77218293b11b81d4fda86c3d', name: 'Netflix', price: 390,
     dueDate: '2026-10-05', amountUpdatedDate: '2026-07-18', paused: false,
-  }]));
+  }], 'all', '2026-07-24'));
   assert.match(json, /📅 10\/05 \$390/);
   assert.doesNotMatch(json, /07\/18更新/);
   assert.doesNotMatch(json, /2026\/10\/05/);
+});
+
+test('預設只顯示本月與逾期項目，並可切換查看全部', () => {
+  const items = [
+    { id: '1', name: '逾期帳單', price: 100, dueDate: '2026-06-30', paused: false },
+    { id: '2', name: '本月帳單', price: 200, dueDate: '2026-07-31', paused: false },
+    { id: '3', name: '未來帳單', price: 300, dueDate: '2026-08-01', paused: false },
+    { id: '4', name: '暫停帳單', price: 400, dueDate: '2026-07-20', paused: true },
+  ];
+  const monthly = JSON.stringify(bot.billsMessage(items, 'month', '2026-07-24'));
+  assert.match(monthly, /本月繳費/);
+  assert.match(monthly, /逾期帳單/);
+  assert.match(monthly, /本月帳單/);
+  assert.doesNotMatch(monthly, /未來帳單/);
+  assert.doesNotMatch(monthly, /暫停帳單/);
+  assert.match(monthly, /查看全部/);
+  assert.match(monthly, /action=bills_all/);
+
+  const all = JSON.stringify(bot.billsMessage(items, 'all', '2026-07-24'));
+  assert.match(all, /未來帳單/);
+  assert.match(all, /暫停帳單/);
+  assert.match(all, /只看本月/);
 });
 
 test('更新金額會修改 Notion 價格並回覆更新日期', async () => {
