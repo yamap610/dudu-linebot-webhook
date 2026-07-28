@@ -7,6 +7,9 @@
     "test": "node --test",
     "rich-menu:setup": "node scripts/setup-rich-menu.js"
   },
+  "dependencies": {
+    "@vercel/blob": "^2.6.1"
+  },
   "engines": {
     "node": ">=18"
   }
