@@ -13,14 +13,24 @@ function bill(name, dueDate, price = 100, paused = false, id = name) {
   } };
 }
 
-test('待繳只包含今天至未來 3 天，排除已過期、較晚及暫停項目', async () => {
+test('待繳包含逾期與未來 3 天，排除較晚及暫停項目', async () => {
   const notion = { queryAll: async () => [
     bill('已過期', '2026-07-13'), bill('今天', '2026-07-14'),
     bill('三天內', '2026-07-17'), bill('第四天', '2026-07-18'),
     bill('已暫停', '2026-07-15', 100, true),
   ] };
   const result = await getUpcomingBills(notion, 'db', '2026-07-14');
-  assert.deepEqual(result.map((item) => item.name), ['今天', '三天內']);
+  assert.deepEqual(result.map((item) => item.name), ['已過期', '今天', '三天內']);
+});
+
+test('每日提醒會標示帳單逾期天數', () => {
+  const message = buildMorningMessage({
+    today: '2026-07-14',
+    events: [],
+    bills: [{ name: '電信費', dueDate: '2026-07-11', price: 1029 }],
+  });
+  assert.match(message, /待繳提醒｜逾期／3 天內/);
+  assert.match(message, /💳 電信費（逾期 3 天） \$1,029/);
 });
 
 test('行程與待繳合併為一則早安訊息', () => {
@@ -145,7 +155,7 @@ test('21:00 預告以明天為基準合併行程、待繳與待辦', async () =>
   });
   assert.match(message.text, /明日小叮嚀｜7\/19/);
   assert.match(message.text, /【 行程 】/);
-  assert.match(message.text, /【 待繳提醒｜3 天內 】/);
+  assert.match(message.text, /【 待繳提醒｜逾期／3 天內 】/);
   assert.match(message.text, /信用卡費（2 天後到期）/);
   assert.match(message.text, /【 待辦／待買提醒 】/);
   assert.match(message.text, /回桃園待辦（明天）/);
