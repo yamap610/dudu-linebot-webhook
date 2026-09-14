@@ -6,7 +6,7 @@
 
 `Authorization: Bearer <CRON_SECRET>`
 
-Vercel 環境變數需有既有的 Notion、Google Calendar、LINE 設定，另加 `CRON_SECRET`、`LINE_USER_ID` 與選用的 `LINE_USER_ID_2`。效期管家預設讀取資料庫 `f40a3915e858492daa9a941ddccea34d`；如需切換資料庫，可設定 `EXPIRY_DB_ID`。Notion Integration 必須有該資料庫的讀取權限，且資料庫需包含「到期更換日」日期或公式欄位與「已處理」核取方塊。舊的「每日帳單」與「每日行程」兩個排程應停用，以免重複推播。
+Vercel 環境變數需有既有的 Notion、Google Calendar、LINE 設定，另加 `CRON_SECRET`、`LINE_USER_ID` 與選用的 `LINE_USER_ID_2`。效期管家預設讀取資料庫 `f40a3915e858492daa9a941ddccea34d`；如需切換資料庫，可設定 `EXPIRY_DB_ID`。Notion Integration 必須有該資料庫的讀取權限，且資料庫需包含「日期」日期欄位與「已處理」核取方塊。舊的「每日帳單」與「每日行程」兩個排程應停用，以免重複推播。
 
 ## 額度估算與週報建議
 

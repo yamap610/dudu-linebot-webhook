@@ -11,7 +11,7 @@ function expiry(name, dueDate, handled = false, dateType = 'date') {
     : { type: 'date', date: { start: dueDate } };
   return { id: name, properties: {
     品項: { type: 'title', title: [{ plain_text: name }] },
-    到期更換日: dueProperty,
+    日期: dueProperty,
     已處理: { type: 'checkbox', checkbox: handled },
   } };
 }
@@ -36,7 +36,7 @@ test('效期只保留未處理的已過期與未來 3 天，並依日期排序',
   assert.deepEqual(items.map((item) => item.daysRemaining), [-2, 0, 1, 3]);
   assert.deepEqual(receivedQuery, {
     filter: { property: '已處理', checkbox: { equals: false } },
-    sorts: [{ property: '到期更換日', direction: 'ascending' }],
+    sorts: [{ property: '日期', direction: 'ascending' }],
   });
 });
 
