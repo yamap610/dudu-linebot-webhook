@@ -53,13 +53,12 @@ test('效期倒數與區塊符合 LINE 文字格式', () => {
     { name: '優格', daysRemaining: 1 },
   ]);
   assert.equal(block,
-    '【 效期管家 】\n\n'
-    + '已過期\n'
-    + '・豆腐｜已過期 2 天\n\n'
-    + '3 天內\n'
-    + '・牛奶｜今天到期\n'
-    + '・優格｜剩 1 天');
+    '【 效期提醒｜已過期／3 天內 】\n'
+    + '⌛ 豆腐（已過期 2 天）\n'
+    + '⌛ 牛奶（今天到期）\n'
+    + '⌛ 優格（剩 1 天）');
   assert.doesNotMatch(block, /🔴|🟠|🟡|🔵/);
+  assert.doesNotMatch(block, /・|已過期\n|3 天內\n/);
   assert.equal(formatExpiryBlock([]), '');
 });
 
@@ -75,9 +74,9 @@ test('效期關鍵字可查全部注意品項或只查已過期', async () => {
   const [message] = await handleCommand(
     { action: 'expiry', overdueOnly: true }, notion, { expiryDbId: 'expiry-db' },
   );
-  assert.match(message.text, /^效期管家/);
-  assert.match(message.text, /豆腐｜已過期/);
-  assert.doesNotMatch(message.text, /3 天內|遙遠品項/);
+  assert.match(message.text, /^【 效期提醒｜已過期 】/);
+  assert.match(message.text, /豆腐（已過期/);
+  assert.doesNotMatch(message.text, /遙遠品項/);
 });
 
 test('手動查詢沒有結果時回覆空狀態', async () => {

@@ -62,15 +62,16 @@ test('每日提醒有資料才顯示效期管家區塊', () => {
       { name: '起司', daysRemaining: 3 },
     ],
   });
-  assert.match(message, /【 效期管家 】/);
-  assert.match(message, /已過期\n・豆腐｜已過期 2 天/);
-  assert.match(message, /3 天內\n・牛奶｜今天到期\n・起司｜剩 3 天/);
+  assert.match(message, /【 效期提醒｜已過期／3 天內 】/);
+  assert.match(message, /⌛ 豆腐（已過期 2 天）/);
+  assert.match(message, /⌛ 牛奶（今天到期）\n⌛ 起司（剩 3 天）/);
+  assert.doesNotMatch(message, /・|已過期\n|3 天內\n/);
 
   const withoutExpiry = buildMorningMessage({
     today: '2026-07-14',
     events: [{ summary: '看牙醫', start: { date: '2026-07-14' }, end: { date: '2026-07-15' } }],
   });
-  assert.doesNotMatch(withoutExpiry, /效期管家|目前沒有需要注意的效期品項/);
+  assert.doesNotMatch(withoutExpiry, /效期提醒|目前沒有需要注意的效期品項/);
 });
 
 test('待辦依優先級在指定日期提醒', () => {
