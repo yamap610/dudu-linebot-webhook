@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  getExpiryItems, expiryCountdown, formatExpiryBlock,
+  getExpiryItems, expiryCountdown, formatExpiryBlock, formatExpiryAll,
 } = require('../lib/expiry');
 const { parseTextCommand, handleCommand } = require('../lib/bot');
 
@@ -74,9 +74,11 @@ test('效期關鍵字可查全部注意品項或只查已過期', async () => {
   const [message] = await handleCommand(
     { action: 'expiry', overdueOnly: true }, notion, { expiryDbId: 'expiry-db' },
   );
-  assert.match(message.text, /^【 效期提醒｜已過期 】/);
-  assert.match(message.text, /豆腐（已過期/);
-  assert.doesNotMatch(message.text, /遙遠品項/);
+  const json = JSON.stringify(message);
+  assert.equal(message.type, 'flex');
+  assert.match(json, /⌛ 已過期/);
+  assert.match(json, /豆腐/);
+  assert.doesNotMatch(json, /遙遠品項/);
 });
 
 test('手動查詢沒有結果時回覆空狀態', async () => {
@@ -84,5 +86,35 @@ test('手動查詢沒有結果時回覆空狀態', async () => {
   const [message] = await handleCommand(
     { action: 'expiry', overdueOnly: false }, notion, { expiryDbId: 'expiry-db' },
   );
-  assert.equal(message.text, '目前沒有需要注意的效期品項。');
+  const json = JSON.stringify(message);
+  assert.equal(message.type, 'flex');
+  assert.match(json, /目前沒有需要注意的效期品項/);
+  assert.match(json, /查看全部/);
+  assert.match(json, /僅看已過期/);
+  assert.match(json, /重新整理/);
+});
+
+test('查看全部會顯示未處理品項，較遠日期改顯示實際日期', async () => {
+  const notion = { queryAll: async () => [
+    expiry('昆布鹽', '2026-09-16'),
+    expiry('薑茶包', '2027-12-08'),
+    expiry('已處理品項', '2026-09-15', true),
+  ] };
+  const items = await getExpiryItems(notion, 'expiry-db', '2026-09-15', { includeAll: true });
+  assert.deepEqual(items.map((item) => item.name), ['昆布鹽', '薑茶包']);
+  assert.equal(formatExpiryAll(items),
+    '【 全部未處理效期 】\n'
+    + '⌛ 昆布鹽（剩 1 天）\n'
+    + '⌛ 薑茶包（2027/12/08）');
+
+  const [message] = await handleCommand(
+    { action: 'expiry_all' }, notion,
+    { expiryDbId: 'expiry-db', expiryNotionUrl: 'https://app.notion.com/p/test' },
+  );
+  const json = JSON.stringify(message);
+  assert.equal(message.type, 'flex');
+  assert.match(json, /⌛ 全部效期/);
+  assert.match(json, /昆布鹽/);
+  assert.match(json, /薑茶包/);
+  assert.match(json, /只看需注意/);
 });
