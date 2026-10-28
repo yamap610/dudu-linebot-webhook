@@ -49,6 +49,27 @@ test('行程與待繳合併為一則早安訊息', () => {
   assert.doesNotMatch(message, /▪️/);
 });
 
+test('每日提醒同時顯示宜蘭市住家與台北市上班地天氣', () => {
+  const message = buildMorningMessage({
+    today: '2026-07-14',
+    events: [{ summary: '上班', eventLabelName: '🐴 馬丁活動', start: { date: '2026-07-14' } }],
+    weather: {
+      lines: ['宜蘭市 25–31°C｜降雨 60%', '台北市 27–34°C｜多雲'],
+      reminders: ['☂️ 今天容易下雨，出門記得帶傘喔！'],
+    },
+  });
+  assert.match(message, /宜蘭市 25–31°C｜降雨 60%\n台北市 27–34°C｜多雲/);
+  assert.equal((message.match(/出門記得帶傘/g) || []).length, 1);
+});
+
+test('月曆的其他標籤使用星號分類', () => {
+  const message = buildMorningMessage({
+    today: '2026-07-14',
+    events: [{ summary: '整理照片', eventLabelName: '⭐ 其他', start: { date: '2026-07-14' } }],
+  });
+  assert.match(message, /⭐ 其他｜整天 整理照片/);
+});
+
 test('沒有行程與待繳時不推播', () => {
   assert.equal(buildMorningMessage({ today: '2026-07-14', events: [], bills: [] }), null);
 });
