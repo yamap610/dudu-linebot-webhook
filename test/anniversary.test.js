@@ -41,6 +41,27 @@ test('近期紀念日會跨年排序並顯示提醒狀態', async () => {
   assert.match(rendered, /3 週年/);
   assert.match(rendered, /翠翠生日/);
   assert.match(rendered, /32 歲/);
-  assert.match(rendered, /🔔 前一天 21:00＋當天 08:00/);
-  assert.match(rendered, /🔕 尚未開啟提醒/);
+  assert.match(rendered, /🎈 近期紀念日/);
+  assert.doesNotMatch(rendered, /21:00|08:00|尚未開啟提醒/);
+});
+
+test('近期只顯示五個，顯示全部後以五個一頁左右滑動', () => {
+  const items = Array.from({ length: 7 }, (_, index) => ({
+    name: `重要日子 ${index + 1}`,
+    date: `2020-11-${String(index + 1).padStart(2, '0')}`,
+    nextDate: `2026-11-${String(index + 1).padStart(2, '0')}`,
+    type: '紀念日',
+    repeatsYearly: true,
+    lineReminder: true,
+  }));
+  const recent = anniversaryListMessage(items, '2026-10-29');
+  const recentRendered = JSON.stringify(recent);
+  assert.match(recentRendered, /重要日子 5/);
+  assert.doesNotMatch(recentRendered, /重要日子 6/);
+  assert.match(recentRendered, /action=anniversaries_all/);
+
+  const all = anniversaryListMessage(items, '2026-10-29', { showAll: true });
+  assert.equal(all.contents.type, 'carousel');
+  assert.equal(all.contents.contents.length, 2);
+  assert.match(JSON.stringify(all), /重要日子 7/);
 });
