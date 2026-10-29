@@ -7,7 +7,7 @@ const IMAGE_PATH = process.env.RICH_MENU_IMAGE || path.resolve(__dirname, '..', 
 const richMenu = {
   size: { width: 2500, height: 1686 },
   selected: true,
-  name: '嘟嘟一家主選單｜待繳與生活管理',
+  name: '嘟嘟一家主選單｜更多工具箱｜20261029',
   chatBarText: '小秘書幫幫我✨',
   areas: [
     {
@@ -53,7 +53,14 @@ async function main() {
   let richMenuId;
   try {
     const previous = await lineRequest('https://api.line.me/v2/bot/user/all/richmenu').catch(() => ({}));
-    if (previous.richMenuId) console.log(`原預設 Rich Menu 保留：${previous.richMenuId}`);
+    if (previous.richMenuId) {
+      const current = await lineRequest(`https://api.line.me/v2/bot/richmenu/${previous.richMenuId}`).catch(() => ({}));
+      if (current.name === richMenu.name) {
+        console.log(`Rich Menu 已是最新版本：${previous.richMenuId}`);
+        return previous.richMenuId;
+      }
+      console.log(`原預設 Rich Menu 保留：${previous.richMenuId}`);
+    }
     const created = await lineRequest('https://api.line.me/v2/bot/richmenu', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -69,6 +76,7 @@ async function main() {
 
     await lineRequest(`https://api.line.me/v2/bot/user/all/richmenu/${richMenuId}`, { method: 'POST' });
     console.log(`Rich Menu 已建立並設為預設：${richMenuId}`);
+    return richMenuId;
   } catch (error) {
     if (richMenuId) {
       await lineRequest(`https://api.line.me/v2/bot/richmenu/${richMenuId}`, { method: 'DELETE' }).catch(() => {});

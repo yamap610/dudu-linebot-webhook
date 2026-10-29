@@ -7,6 +7,20 @@ const {
   parsePostback,
   handleCommand,
 } = require('../lib/bot');
+const { main: ensureLatestRichMenu } = require('../scripts/setup-rich-menu');
+
+let richMenuSetupPromise;
+
+function ensureRichMenuOnce() {
+  if (!richMenuSetupPromise) {
+    richMenuSetupPromise = ensureLatestRichMenu().catch((error) => {
+      console.error('Rich Menu 自動更新失敗', error.message);
+      richMenuSetupPromise = null;
+      return null;
+    });
+  }
+  return richMenuSetupPromise;
+}
 
 module.exports.config = {
   api: { bodyParser: false },
@@ -109,9 +123,10 @@ module.exports = async function webhook(req, res) {
     return;
   }
 
+  await ensureRichMenuOnce();
   const notion = createNotionClient(config);
   await Promise.all((body.events || []).map((event) => processEvent(event, notion, config)));
   res.status(200).send('ok');
 };
 
-module.exports._test = { getRawBody, verifySignature, replyLine, processEvent };
+module.exports._test = { getRawBody, verifySignature, replyLine, processEvent, ensureRichMenuOnce };
