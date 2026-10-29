@@ -34,10 +34,13 @@ test('近期紀念日會跨年排序並顯示提醒狀態', async () => {
   assert.deepEqual(items.map((item) => item.name), ['一次活動', '交往紀念日', '翠翠生日']);
 
   const message = anniversaryListMessage(items, '2026-10-29');
-  assert.match(message.text, /一次活動/);
-  assert.match(message.text, /交往紀念日・3 週年/);
-  assert.match(message.text, /翠翠生日・32 歲/);
-  assert.match(message.text, /🔔/);
-  assert.match(message.text, /🔕/);
-  assert.match(message.text, /前一天 21:00 與當天 08:00/);
+  const rendered = JSON.stringify(message);
+  assert.equal(message.type, 'flex');
+  assert.match(rendered, /一次活動/);
+  assert.match(rendered, /交往紀念日/);
+  assert.match(rendered, /3 週年/);
+  assert.match(rendered, /翠翠生日/);
+  assert.match(rendered, /32 歲/);
+  assert.match(rendered, /🔔 前一天 21:00＋當天 08:00/);
+  assert.match(rendered, /🔕 尚未開啟提醒/);
 });
