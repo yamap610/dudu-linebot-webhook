@@ -13,6 +13,30 @@
 
 Vercel 環境變數需有既有的 Notion、Google Calendar、LINE 設定，另加 `CRON_SECRET`、`LINE_USER_ID` 與選用的 `LINE_USER_ID_2`。紀念日資料庫可用 `ANNIVERSARY_DB_ID` 覆蓋，預設為 `9dd10d10e0414e2593d16ec8f57ec8f4`。Notion Integration 必須有紀念日資料庫的讀取權限；只有勾選「Line Bot 提醒」且日期符合的紀念日會推播。效期管家預設讀取資料庫 `f40a3915e858492daa9a941ddccea34d`；如需切換資料庫，可設定 `EXPIRY_DB_ID`。舊的「每日帳單」與「每日行程」兩個排程應停用，以免重複推播。
 
+紀念日資料需要以下欄位：
+
+- `名稱`：紀念日或生日名稱。
+- `日期`：原始日期。
+- `類型`：生日、紀念日、節日或其他。
+- `每年重複`：勾選時以月／日判斷每年提醒。
+- `Line Bot 提醒`：只有勾選的項目會進入 21:00 前一日預告與 08:00 當日提醒。
+
+LINE Rich Menu 的「紀念日」可隨時查看近期項目，清單中的 `🔔／🔕` 會顯示目前提醒開關狀態。
+
+## LINE 內明細清單
+
+待辦或待買只要在 Notion 勾選 `內含明細`，LINE 清單就會顯示「開啟清單」。使用者可直接在 LINE 勾選 Notion 頁面內的 to-do blocks，不再跳轉 Notion。由於 LINE 無法改寫已送出的 Flex Message，連續勾選會靜默同步；完成後按「重新整理清單」即可查看最新狀態。
+
+## Rich Menu 更新
+
+六格選單依序為：待繳費、效期提醒、行程查詢、待辦事項、待買清單、更多。更多功能依序提供紀念日、垃圾分類與快速新增。
+
+```powershell
+npm run rich-menu:setup
+```
+
+指令會使用已確認的 `assets/rich-menu-main.jpg`，呼叫 LINE API 建立並設為預設 Rich Menu；執行前需先設定 `LINE_TOKEN`。
+
 ## 額度估算與週報建議
 
 LINE 計費以「訊息則數 × 收件人數」計。以目前 2 位收件人估算：
