@@ -2,17 +2,17 @@ const fs = require('fs');
 const path = require('path');
 
 const LINE_TOKEN = process.env.LINE_TOKEN;
-const IMAGE_PATH = process.env.RICH_MENU_IMAGE || path.resolve(__dirname, '..', 'assets', 'rich-menu-expiry-hourglass.jpg');
+const IMAGE_PATH = process.env.RICH_MENU_IMAGE || path.resolve(__dirname, '..', 'assets', 'rich-menu-main.jpg');
 
 const richMenu = {
   size: { width: 2500, height: 1686 },
   selected: true,
-  name: '嘟嘟一家主選單｜效期提醒',
+  name: '嘟嘟一家主選單｜待繳與生活管理',
   chatBarText: '小秘書幫幫我✨',
   areas: [
     {
       bounds: { x: 0, y: 0, width: 833, height: 843 },
-      action: { type: 'postback', data: 'action=bills', displayText: '訂閱／待繳' },
+      action: { type: 'postback', data: 'action=bills', displayText: '待繳費' },
     },
     {
       bounds: { x: 833, y: 0, width: 833, height: 843 },
@@ -32,7 +32,7 @@ const richMenu = {
     },
     {
       bounds: { x: 1666, y: 843, width: 834, height: 843 },
-      action: { type: 'postback', data: 'action=quick_add', displayText: '快速新增' },
+      action: { type: 'postback', data: 'action=more_menu', displayText: '更多' },
     },
   ],
 };
