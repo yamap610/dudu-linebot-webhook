@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/tomorrow-preview",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/morning-push",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}

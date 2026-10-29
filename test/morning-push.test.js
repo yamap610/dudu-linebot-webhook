@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  getUpcomingBills, getTodoReminders, shouldRemindTodo, buildMorningMessage, createMorningMessage,
+  getUpcomingBills, getTodoReminders, shouldRemindTodo, getAnniversaryReminders,
+  buildMorningMessage, createMorningMessage,
 } = require('../lib/morning-push');
 
 function bill(name, dueDate, price = 100, paused = false, id = name) {
@@ -72,6 +73,51 @@ test('月曆的其他標籤使用星號分類', () => {
 
 test('沒有行程與待繳時不推播', () => {
   assert.equal(buildMorningMessage({ today: '2026-07-14', events: [], bills: [] }), null);
+});
+
+test('紀念日依每年重複與 LINE 提醒開關篩選', async () => {
+  const anniversary = (name, date, type, repeatsYearly = true, lineReminder = true) => ({ properties: {
+    名稱: { type: 'title', title: [{ plain_text: name }] },
+    日期: { date: { start: date } },
+    類型: { select: { name: type } },
+    每年重複: { checkbox: repeatsYearly },
+    'Line Bot 提醒': { checkbox: lineReminder },
+  } });
+  const notion = { queryAll: async () => [
+    anniversary('嘟嘟生日', '2024-09-18', '生日'),
+    anniversary('結婚紀念日', '2023-09-18', '紀念日'),
+    anniversary('一次活動', '2026-09-18', '其他', false),
+    anniversary('不同日期', '2024-09-19', '生日'),
+    anniversary('不要提醒', '2024-09-18', '生日', true, false),
+  ] };
+  const result = await getAnniversaryReminders(notion, 'anniversary-db', '2026-09-18');
+  assert.deepEqual(result.map((item) => item.name), ['嘟嘟生日', '結婚紀念日', '一次活動']);
+
+  const message = buildMorningMessage({ today: '2026-09-18', anniversaries: result });
+  assert.match(message, /【 今日紀念日 】/);
+  assert.match(message, /🎂 嘟嘟生日（2 歲）/);
+  assert.match(message, /💞 結婚紀念日（3 週年）/);
+  assert.match(message, /⭐ 一次活動/);
+});
+
+test('明日預告顯示明日紀念日', async () => {
+  const notion = { queryAll: async (dbId) => (dbId === 'anniversary-db' ? [{ properties: {
+    名稱: { type: 'title', title: [{ plain_text: '家庭日' }] },
+    日期: { date: { start: '2020-07-19' } },
+    類型: { select: { name: '紀念日' } },
+    每年重複: { checkbox: true },
+    'Line Bot 提醒': { checkbox: true },
+  } }] : []) };
+  const message = await createMorningMessage({
+    notion,
+    config: { anniversaryDbId: 'anniversary-db' },
+    now: new Date('2026-07-18T13:00:00Z'),
+    calendarClient: { listEvents: async () => [] },
+    weatherData: null,
+    dayOffset: 1,
+  });
+  assert.match(message.text, /【 明日紀念日 】/);
+  assert.match(message.text, /💞 家庭日（6 週年）/);
 });
 
 test('每日提醒有資料才顯示效期、耗材與保固區塊', () => {
