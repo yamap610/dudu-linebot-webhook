@@ -27,7 +27,7 @@ function todoBlock(checked = false) {
   };
 }
 
-test('待買有內容 checklist 時直接在 LINE 開啟清單', async () => {
+test('待買有內容 checklist 時顯示 Notion 開啟清單連結', async () => {
   const notion = {
     queryAll: async () => [page()],
     getBlockChildren: async () => assert.fail('清單頁不應逐筆讀取 Notion 內容'),
@@ -35,9 +35,8 @@ test('待買有內容 checklist 時直接在 LINE 開啟清單', async () => {
   const [message] = await handleCommand({ action: 'list', type: 'buy' }, notion, { todoDbId: 'db' });
   const output = JSON.stringify(message);
   assert.match(output, /開啟清單/);
-  assert.match(output, /"type":"postback"/);
-  assert.match(output, new RegExp(`action=checklist&type=buy&id=${PAGE_ID.replaceAll('-', '')}`));
-  assert.doesNotMatch(output, /https:\/\/notion\.so/);
+  assert.match(output, /"type":"uri"/);
+  assert.match(output, /https:\/\/notion\.so/);
 });
 
 test('沒有 checklist 時只保留完成按鈕', async () => {
