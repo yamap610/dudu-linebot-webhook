@@ -120,6 +120,32 @@ test('登記已繳會按期別去重並寫入對應繳費期限', async () => {
   );
   assert.equal(created.properties['繳費日期'].date.start, '2026-10-29');
   assert.equal(created.properties['對應繳費期限'].date.start, '2026-11-01');
+  assert.equal(created.properties['帳期'].rich_text[0].text.content, '202610');
   assert.equal(created.properties['繳費金額'].number, 30000);
+  assert.equal(result.billingPeriod, '202610');
   assert.equal(result.nextDueDate, '2026-12-01');
+});
+
+test('一般固定支出使用繳費期限當月作為帳期', async () => {
+  const pageId = '406447cd772180cc86add689d4dd03ba';
+  let created;
+  const notion = {
+    queryAll: async (dbId) => (dbId === 'bill-db' ? [{
+      id: pageId,
+      properties: {
+        '名稱': { title: [{ plain_text: '嵐峰路房租' }] },
+        '下次繳費': { formula: { type: 'string', string: '2026-10-30' } },
+        '繳費週期': { select: { name: '月' } },
+        '價格': { number: 18500 },
+        '暫停訂閱': { checkbox: false },
+        '準備取消': { checkbox: false },
+      },
+    }] : []),
+    createPage: async (dbId, properties) => { created = { dbId, properties }; },
+  };
+  await bot.markBillPaid(
+    notion, { billDbId: 'bill-db', billHistoryDbId: 'history-db' },
+    pageId, 18500, '2026-10-30', new Date('2026-10-26T12:00:00+08:00'),
+  );
+  assert.equal(created.properties['帳期'].rich_text[0].text.content, '202610');
 });
