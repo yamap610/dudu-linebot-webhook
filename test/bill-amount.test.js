@@ -5,7 +5,7 @@ const bot = require('../lib/bot');
 test('繳費選單可選擇帳單並預填更新金額指令', () => {
   const item = {
     id: 'a90447cd77218293b11b81d4fda86c3d', name: '電信費_台灣大哥大', price: 999,
-    dueDate: '2026-08-20', amountPeriod: '202607', amountUpdatedDate: '2026-07-18', paused: false,
+    dueDate: '2026-07-20', amountPeriod: '202607', amountUpdatedDate: '2026-07-18', paused: false,
   };
   const billsJson = JSON.stringify(bot.billsMessage([item]));
   assert.match(billsJson, /update_amount_menu/);
@@ -39,6 +39,16 @@ test('待繳清單以 YYYYMM 簡短顯示期別', () => {
   assert.match(json, /嵐峰路房租[\s\S]*（202611）/);
   assert.match(json, /健保_由依分期[\s\S]*（202611）/);
   assert.doesNotMatch(json, /10\/26更新/);
+});
+
+test('變動金額尚未更新到下一期時顯示警告與上期金額', () => {
+  const json = JSON.stringify(bot.billsMessage([{
+    id: '1', name: '信用卡費_星展', price: 7000,
+    dueDate: '2026-12-09', amountPeriod: '202610', paused: false,
+  }], 'all', '2026-10-30'));
+  assert.match(json, /12\/09 ⚠️ 金額待更新/);
+  assert.match(json, /上期金額：\$7,000（202610）/);
+  assert.doesNotMatch(json, /12\/09 \$7,000/);
 });
 
 test('預設只顯示本月與逾期項目，並可切換查看全部', () => {
