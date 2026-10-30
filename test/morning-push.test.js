@@ -10,6 +10,7 @@ function bill(name, dueDate, price = 100, paused = false, id = name) {
     名稱: { type: 'title', title: [{ plain_text: name }] },
     下次繳費: { formula: { type: 'string', string: dueDate } },
     價格: { number: price },
+    繳費週期: { select: { name: '月' } },
     暫停訂閱: { checkbox: paused },
   } };
 }
@@ -22,6 +23,38 @@ test('待繳包含逾期與未來 3 天，排除較晚及暫停項目', async ()
   ] };
   const result = await getUpcomingBills(notion, 'db', '2026-07-14');
   assert.deepEqual(result.map((item) => item.name), ['已過期', '今天', '三天內']);
+});
+
+test('本期已提早繳費時不再發送待繳提醒', async () => {
+  const calls = [];
+  const notion = { queryAll: async (dbId, query) => {
+    calls.push({ dbId, query });
+    if (dbId === 'bill-db') return [bill('信用卡費_聯邦', '2026-11-01', 30000, false, 'federal-id')];
+    if (dbId === 'history-db') return [{ id: 'payment-id' }];
+    return [];
+  } };
+  const result = await getUpcomingBills(notion, {
+    billDbId: 'bill-db', billHistoryDbId: 'history-db',
+  }, '2026-10-30');
+  assert.deepEqual(result, []);
+  const historyQuery = calls.find((call) => call.dbId === 'history-db').query;
+  assert.deepEqual(historyQuery.filter.and, [
+    { property: '產品', relation: { contains: 'federal-id' } },
+    { property: '繳費日期', date: { on_or_after: '2026-10-02' } },
+    { property: '繳費日期', date: { on_or_before: '2026-10-30' } },
+  ]);
+});
+
+test('只有上期繳費紀錄時仍保留本期提醒', async () => {
+  const notion = { queryAll: async (dbId) => (
+    dbId === 'bill-db'
+      ? [bill('信用卡費_聯邦', '2026-11-01', 30000, false, 'federal-id')]
+      : []
+  ) };
+  const result = await getUpcomingBills(notion, {
+    billDbId: 'bill-db', billHistoryDbId: 'history-db',
+  }, '2026-10-30');
+  assert.deepEqual(result.map((item) => item.name), ['信用卡費_聯邦']);
 });
 
 test('每日提醒會標示帳單逾期天數', () => {
