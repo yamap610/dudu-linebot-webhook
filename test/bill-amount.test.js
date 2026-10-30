@@ -5,11 +5,12 @@ const bot = require('../lib/bot');
 test('繳費選單可選擇帳單並預填更新金額指令', () => {
   const item = {
     id: 'a90447cd77218293b11b81d4fda86c3d', name: '電信費_台灣大哥大', price: 999,
-    dueDate: '2026-07-20', amountUpdatedDate: '2026-07-18', paused: false,
+    dueDate: '2026-08-20', amountPeriod: '202607', amountUpdatedDate: '2026-07-18', paused: false,
   };
   const billsJson = JSON.stringify(bot.billsMessage([item]));
   assert.match(billsJson, /update_amount_menu/);
-  assert.match(billsJson, /\$999・（202607）/);
+  assert.match(billsJson, /\$999（202607）/);
+  assert.doesNotMatch(billsJson, /\$999・/);
   assert.match(billsJson, /"label":"繳費"/);
   const menuJson = JSON.stringify(bot.updateAmountMenuMessage([item]));
   assert.match(menuJson, /更新金額 電信費_台灣大哥大 /);
@@ -29,12 +30,12 @@ test('固定金額不顯示更新日，未來到期日不顯示年份', () => {
 
 test('待繳清單以 YYYYMM 簡短顯示期別', () => {
   const items = [
-    { id: '1', name: '信用卡費_聯邦', price: 30000, dueDate: '2026-11-01', amountUpdatedDate: '2026-10-26', paused: false },
+    { id: '1', name: '信用卡費_聯邦', price: 30000, dueDate: '2026-12-01', amountPeriod: '202610', amountUpdatedDate: '2026-10-26', paused: false },
     { id: '2', name: '嵐峰路房租', price: 18500, dueDate: '2026-11-30', paused: false },
     { id: '3', name: '健保_由依分期', price: 829, dueDate: '2026-11-05', paused: false },
   ];
   const json = JSON.stringify(bot.billsMessage(items, 'all', '2026-10-30'));
-  assert.match(json, /信用卡費_聯邦[\s\S]*（202610）/);
+  assert.match(json, /信用卡費_聯邦[\s\S]*\$30,000（202610）/);
   assert.match(json, /嵐峰路房租[\s\S]*（202611）/);
   assert.match(json, /健保_由依分期[\s\S]*（202611）/);
   assert.doesNotMatch(json, /10\/26更新/);
@@ -70,7 +71,7 @@ test('更新金額會修改 Notion 價格並回覆更新日期', async () => {
       id: pageId,
       last_edited_time: '2026-07-18T03:00:00.000Z',
       properties: {
-        '名稱': { title: [{ plain_text: '台灣大哥大' }] },
+        '名稱': { title: [{ plain_text: '電信費_台灣大哥大' }] },
         '下次繳費': { formula: { type: 'string', string: '2026-07-20' } },
         '價格': { number: 999 },
         '暫停訂閱': { checkbox: false },
@@ -79,11 +80,12 @@ test('更新金額會修改 Notion 價格並回覆更新日期', async () => {
     }],
     updatePage: async (id, properties) => { updated = { id, properties }; },
   };
-  const parsed = bot.parseTextCommand('更新金額 台灣大哥大 1,380');
-  assert.deepEqual(parsed, { action: 'update_bill_amount', name: '台灣大哥大', amount: 1380 });
+  const parsed = bot.parseTextCommand('更新金額 電信費_台灣大哥大 1,380');
+  assert.deepEqual(parsed, { action: 'update_bill_amount', name: '電信費_台灣大哥大', amount: 1380 });
   const messages = await bot.handleCommand(parsed, notion, { billDbId: 'bill-db' });
   assert.equal(updated.id, pageId);
   assert.equal(updated.properties['價格'].number, 1380);
+  assert.equal(updated.properties['金額帳期'].rich_text[0].text.content, '202607');
   assert.match(messages[0].text, /更新：\d{2}\/\d{2}/);
 });
 
