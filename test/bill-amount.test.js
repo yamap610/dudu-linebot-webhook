@@ -119,6 +119,7 @@ test('登記已繳會按期別去重並寫入對應繳費期限', async () => {
     pageId, 30000, '2026-11-01', new Date('2026-10-29T12:00:00+08:00'),
   );
   assert.equal(created.properties['繳費日期'].date.start, '2026-10-29');
+  assert.equal(created.properties['項目'].title[0].text.content, '信用卡費_聯邦');
   assert.equal(created.properties['對應繳費期限'].date.start, '2026-11-01');
   assert.equal(created.properties['帳期'].rich_text[0].text.content, '202610');
   assert.equal(created.properties['繳費金額'].number, 30000);
