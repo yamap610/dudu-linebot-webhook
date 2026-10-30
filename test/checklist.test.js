@@ -51,7 +51,7 @@ test('沒有 checklist 時只保留完成按鈕', async () => {
   assert.match(output, /已買到/);
 });
 
-test('LINE 勾選 checklist 後靜默同步 Notion，不堆疊新卡片', async () => {
+test('LINE 勾選 checklist 後立即回傳有確認狀態的最新清單', async () => {
   let checked = false;
   const notion = {
     getPage: async () => page(),
@@ -65,7 +65,11 @@ test('LINE 勾選 checklist 後靜默同步 Notion，不堆疊新卡片', async 
     action: 'checklist_toggle', type: 'buy', id: PAGE_ID, block: BLOCK_ID, checked: '1', page: '1',
   }, notion, {});
   assert.equal(checked, true);
-  assert.deepEqual(messages, []);
+  assert.equal(messages.length, 1);
+  const output = JSON.stringify(messages[0]);
+  assert.match(output, /☑ 已勾選：雞蛋/);
+  assert.match(output, /1\/1 項完成/);
+  assert.match(output, /☑ 雞蛋/);
 });
 
 test('內容清單提供手動重新整理按鈕', async () => {
@@ -76,7 +80,7 @@ test('內容清單提供手動重新整理按鈕', async () => {
   const [message] = await handleCommand({ action: 'checklist', type: 'buy', id: PAGE_ID, page: '1' }, notion, {});
   const output = JSON.stringify(message);
   assert.match(output, /重新整理清單/);
-  assert.match(output, /點選後會直接同步/);
+  assert.match(output, /回傳最新清單/);
   const selectAction = message.contents.body.contents.find((component) => component.type === 'box');
   assert.equal(selectAction.contents.at(-1).type, 'text');
   assert.equal(selectAction.contents.at(-1).size, 'xs');
@@ -114,6 +118,53 @@ test('LINE 新增待辦可選日期並寫入 Notion', async () => {
   }, notion, { todoDbId: 'db' });
   assert.deepEqual(created['預定作業日期'], { date: { start: '2026-08-01' } });
   assert.match(createdMessage.text, /預定作業日期：2026-08-01/);
+});
+
+test('LINE 新增待買會詢問內含明細，輸入後建立可勾選清單', async () => {
+  let createdProperties;
+  let hasDetails = false;
+  let blocks = [];
+  const notion = {
+    createPage: async (_db, properties) => {
+      createdProperties = properties;
+      return { id: PAGE_ID };
+    },
+    getPage: async () => ({
+      ...page('全聯採買', hasDetails),
+      properties: {
+        ...page('全聯採買', hasDetails).properties,
+        屬性: { select: { name: '🛒 待買清單' } },
+      },
+    }),
+    updatePage: async (_id, properties) => {
+      if (properties['內含明細']) hasDetails = properties['內含明細'].checkbox;
+    },
+    appendBlockChildren: async (_id, children) => {
+      blocks = children.map((child, index) => ({
+        id: `${String(index + 3).repeat(8)}-${String(index + 3).repeat(4)}-${String(index + 3).repeat(4)}-${String(index + 3).repeat(4)}-${String(index + 3).repeat(12)}`,
+        type: 'to_do', has_children: false, to_do: child.to_do,
+      }));
+    },
+    getBlockChildren: async () => ({ results: blocks }),
+  };
+
+  const [question] = await handleCommand({
+    action: 'add_create', type: 'buy', priority: '中', name: '全聯採買', date: '',
+  }, notion, { todoDbId: 'db' });
+  assert.deepEqual(createdProperties['內含明細'], { checkbox: false });
+  assert.match(question.text, /內含明細/);
+  assert.match(JSON.stringify(question), /新增待買明細/);
+
+  const parsed = require('../lib/bot').parseTextCommand(`新增待買明細｜${PAGE_ID}｜牛奶、雞蛋\n衛生紙`);
+  assert.deepEqual(parsed.details, ['牛奶', '雞蛋', '衛生紙']);
+  const [checklist] = await handleCommand(parsed, notion, {});
+  const output = JSON.stringify(checklist);
+  assert.equal(hasDetails, true);
+  assert.equal(blocks.length, 3);
+  assert.match(output, /已加入 3 項明細/);
+  assert.match(output, /牛奶/);
+  assert.match(output, /雞蛋/);
+  assert.match(output, /衛生紙/);
 });
 
 test('LINE 可編輯優先級、日期及清除日期', async () => {
