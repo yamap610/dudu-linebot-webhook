@@ -9,7 +9,7 @@ test('繳費選單可選擇帳單並預填更新金額指令', () => {
   };
   const billsJson = JSON.stringify(bot.billsMessage([item]));
   assert.match(billsJson, /update_amount_menu/);
-  assert.match(billsJson, /\$999・2026年7月電信費（07\/18更新）/);
+  assert.match(billsJson, /\$999・（202607）/);
   assert.match(billsJson, /"label":"繳費"/);
   const menuJson = JSON.stringify(bot.updateAmountMenuMessage([item]));
   assert.match(menuJson, /更新金額 電信費_台灣大哥大 /);
@@ -22,21 +22,22 @@ test('固定金額不顯示更新日，未來到期日不顯示年份', () => {
     dueDate: '2026-10-05', amountUpdatedDate: '2026-07-18', paused: false,
   }], 'all', '2026-07-24'));
   assert.match(json, /📅 10\/05 \$390/);
-  assert.match(json, /2026年10月費用/);
+  assert.match(json, /（202610）/);
   assert.doesNotMatch(json, /07\/18更新/);
   assert.doesNotMatch(json, /2026\/10\/05/);
 });
 
-test('待繳清單依項目顯示正確的期別名稱', () => {
+test('待繳清單以 YYYYMM 簡短顯示期別', () => {
   const items = [
     { id: '1', name: '信用卡費_聯邦', price: 30000, dueDate: '2026-11-01', amountUpdatedDate: '2026-10-26', paused: false },
     { id: '2', name: '嵐峰路房租', price: 18500, dueDate: '2026-11-30', paused: false },
     { id: '3', name: '健保_由依分期', price: 829, dueDate: '2026-11-05', paused: false },
   ];
   const json = JSON.stringify(bot.billsMessage(items, 'all', '2026-10-30'));
-  assert.match(json, /2026年10月帳單（10\/26更新）/);
-  assert.match(json, /2026年11月房租/);
-  assert.match(json, /2026年11月健保費/);
+  assert.match(json, /信用卡費_聯邦[\s\S]*（202610）/);
+  assert.match(json, /嵐峰路房租[\s\S]*（202611）/);
+  assert.match(json, /健保_由依分期[\s\S]*（202611）/);
+  assert.doesNotMatch(json, /10\/26更新/);
 });
 
 test('預設只顯示本月與逾期項目，並可切換查看全部', () => {
