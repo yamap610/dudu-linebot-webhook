@@ -40,8 +40,14 @@ test('本期已提早繳費時不再發送待繳提醒', async () => {
   const historyQuery = calls.find((call) => call.dbId === 'history-db').query;
   assert.deepEqual(historyQuery.filter.and, [
     { property: '產品', relation: { contains: 'federal-id' } },
-    { property: '繳費日期', date: { on_or_after: '2026-10-02' } },
-    { property: '繳費日期', date: { on_or_before: '2026-10-30' } },
+    { or: [
+      { property: '對應繳費期限', date: { equals: '2026-11-01' } },
+      { and: [
+        { property: '對應繳費期限', date: { is_empty: true } },
+        { property: '繳費日期', date: { on_or_after: '2026-10-02' } },
+        { property: '繳費日期', date: { on_or_before: '2026-10-30' } },
+      ] },
+    ] },
   ]);
 });
 

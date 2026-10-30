@@ -72,3 +72,54 @@ test('更新金額會修改 Notion 價格並回覆更新日期', async () => {
   assert.equal(updated.properties['價格'].number, 1380);
   assert.match(messages[0].text, /更新：\d{2}\/\d{2}/);
 });
+
+test('確認繳費時會顯示信用卡帳單期別與期限', async () => {
+  const pageId = 'a90447cd77218293b11b81d4fda86c3d';
+  const notion = { queryAll: async () => [{
+    id: pageId,
+    properties: {
+      '名稱': { title: [{ plain_text: '信用卡費_聯邦' }] },
+      '下次繳費': { formula: { type: 'string', string: '2026-11-01' } },
+      '繳費週期': { select: { name: '月' } },
+      '價格': { number: 30000 },
+      '暫停訂閱': { checkbox: false },
+      '準備取消': { checkbox: false },
+    },
+  }] };
+  const [message] = await bot.handleCommand({
+    action: 'paid_confirm', id: pageId, amount: '30000',
+  }, notion, { billDbId: 'bill-db' });
+  const json = JSON.stringify(message);
+  assert.match(json, /10 月帳單（繳費期限 11\/1）/);
+  assert.match(json, /是，登記此期已繳/);
+  assert.match(json, /不是，選其他期別/);
+  assert.match(json, /due=2026-11-01/);
+});
+
+test('登記已繳會按期別去重並寫入對應繳費期限', async () => {
+  const pageId = 'a90447cd77218293b11b81d4fda86c3d';
+  let created;
+  const billPage = {
+    id: pageId,
+    properties: {
+      '名稱': { title: [{ plain_text: '信用卡費_聯邦' }] },
+      '下次繳費': { formula: { type: 'string', string: '2026-11-01' } },
+      '繳費週期': { select: { name: '月' } },
+      '價格': { number: 4000 },
+      '暫停訂閱': { checkbox: false },
+      '準備取消': { checkbox: false },
+    },
+  };
+  const notion = {
+    queryAll: async (dbId) => (dbId === 'bill-db' ? [billPage] : []),
+    createPage: async (dbId, properties) => { created = { dbId, properties }; },
+  };
+  const result = await bot.markBillPaid(
+    notion, { billDbId: 'bill-db', billHistoryDbId: 'history-db' },
+    pageId, 30000, '2026-11-01', new Date('2026-10-29T12:00:00+08:00'),
+  );
+  assert.equal(created.properties['繳費日期'].date.start, '2026-10-29');
+  assert.equal(created.properties['對應繳費期限'].date.start, '2026-11-01');
+  assert.equal(created.properties['繳費金額'].number, 30000);
+  assert.equal(result.nextDueDate, '2026-12-01');
+});
