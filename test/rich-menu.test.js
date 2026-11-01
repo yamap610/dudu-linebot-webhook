@@ -6,7 +6,7 @@ const { richMenu } = require('../scripts/setup-rich-menu');
 
 test('Rich Menu 六格對應日常與提醒入口', () => {
   assert.deepEqual(richMenu.areas.map((area) => area.action.text), [
-    '待辦', '待買', '待繳', '效期', '行程', '更多',
+    '待辦', '待買', '待繳', '期限', '行程', '更多',
   ]);
   assert.ok(richMenu.areas.every((area) => area.action.type === 'message'));
   assert.deepEqual(richMenu.size, { width: 2500, height: 1686 });

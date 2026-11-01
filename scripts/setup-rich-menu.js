@@ -7,7 +7,7 @@ const IMAGE_PATH = process.env.RICH_MENU_IMAGE || path.resolve(__dirname, '..', 
 const richMenu = {
   size: { width: 2500, height: 1686 },
   selected: true,
-  name: '嘟嘟一家功能選單 2026-07｜圖1-20261101',
+  name: '嘟嘟一家功能選單｜期限提醒｜20261101',
   chatBarText: '呼叫小秘書🙌🏻',
   areas: [
     {
@@ -24,7 +24,7 @@ const richMenu = {
     },
     {
       bounds: { x: 0, y: 843, width: 833, height: 843 },
-      action: { type: 'message', text: '效期' },
+      action: { type: 'message', text: '期限' },
     },
     {
       bounds: { x: 833, y: 843, width: 833, height: 843 },

@@ -1,4 +1,4 @@
-const { richMenu } = require('../scripts/setup-rich-menu');
+const { main: ensureLatestRichMenu, richMenu } = require('../scripts/setup-rich-menu');
 
 module.exports = async function lineBotInfo(req, res) {
   if (req.method !== 'GET') {
@@ -13,6 +13,8 @@ module.exports = async function lineBotInfo(req, res) {
   }
 
   try {
+    const syncRichMenu = new URL(req.url, 'https://localhost').searchParams.get('sync') === 'rich-menu';
+    const syncedRichMenuId = syncRichMenu ? await ensureLatestRichMenu() : null;
     const response = await fetch('https://api.line.me/v2/bot/info', {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -32,12 +34,13 @@ module.exports = async function lineBotInfo(req, res) {
       });
       if (menuResponse.ok) currentRichMenu = await menuResponse.json();
     }
-    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('Cache-Control', syncRichMenu ? 'no-store' : 'public, max-age=300');
     res.status(200).json({
       displayName: data.displayName,
       basicId: data.basicId,
       pictureUrl: data.pictureUrl,
       desiredRichMenuName: richMenu.name,
+      syncedRichMenuId,
       defaultRichMenuId: defaultMenu.richMenuId || null,
       currentRichMenu,
     });

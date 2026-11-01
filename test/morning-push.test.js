@@ -163,22 +163,23 @@ test('每日提醒有資料才顯示效期、耗材與保固區塊', () => {
   const message = buildMorningMessage({
     today: '2026-07-14',
     expiries: [
-      { name: '豆腐', daysRemaining: -2 },
-      { name: '牛奶', daysRemaining: 0 },
-      { name: '起司', daysRemaining: 3 },
-      { name: '濾芯', daysRemaining: 5 },
+      { name: '豆腐', type: '效期', reminderDays: 5, daysRemaining: -2 },
+      { name: '牛奶', type: '效期', reminderDays: 5, daysRemaining: 0 },
+      { name: '濾芯', type: '耗材', reminderDays: 7, daysRemaining: 6 },
+      { name: '吸塵器', type: '保固', reminderDays: 30, daysRemaining: 20 },
     ],
   });
-  assert.match(message, /【 效期／耗材／保固｜5 天內 】/);
-  assert.match(message, /⌛ 豆腐（已過期 2 天）/);
-  assert.match(message, /⌛ 牛奶（今天到期）\n⌛ 起司（剩 3 天）\n⌛ 濾芯（剩 5 天）/);
-  assert.doesNotMatch(message, /・|已過期\n|5 天內\n/);
+  assert.match(message, /【 期限提醒 】/);
+  assert.match(message, /⌛ 豆腐（效期・已過期 2 天）/);
+  assert.match(message, /⌛ 牛奶（效期・今天到期）/);
+  assert.match(message, /🔄 濾芯（耗材・剩 6 天）/);
+  assert.match(message, /🛡️ 吸塵器（保固・剩 20 天）/);
 
   const withoutExpiry = buildMorningMessage({
     today: '2026-07-14',
     events: [{ summary: '看牙醫', start: { date: '2026-07-14' }, end: { date: '2026-07-15' } }],
   });
-  assert.doesNotMatch(withoutExpiry, /效期／耗材／保固|目前沒有需要注意的效期品項/);
+  assert.doesNotMatch(withoutExpiry, /期限提醒|目前沒有需要注意的期限項目/);
 });
 
 test('待辦依優先級在指定日期提醒', () => {

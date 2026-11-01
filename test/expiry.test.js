@@ -5,7 +5,7 @@ const {
 } = require('../lib/expiry');
 const { parseTextCommand, handleCommand } = require('../lib/bot');
 
-function expiry(name, dueDate, handled = false, dateType = 'date', reminderEnabled = true) {
+function expiry(name, dueDate, handled = false, dateType = 'date', reminderEnabled = true, type = '效期') {
   const dueProperty = dateType === 'formula'
     ? { type: 'formula', formula: { type: 'date', date: { start: dueDate } } }
     : { type: 'date', date: { start: dueDate } };
@@ -14,6 +14,7 @@ function expiry(name, dueDate, handled = false, dateType = 'date', reminderEnabl
     日期: dueProperty,
     已處理: { type: 'checkbox', checkbox: handled },
     提醒: { type: 'checkbox', checkbox: reminderEnabled },
+    類型: { type: 'select', select: { name: type } },
   } };
 }
 
@@ -43,6 +44,18 @@ test('效期只保留開啟提醒、未處理的已過期與未來 5 天，並�
   });
 });
 
+test('耗材提前 7 天、保固提前 30 天，關閉提醒時不顯示', async () => {
+  const notion = { queryAll: async () => [
+    expiry('濾芯', '2026-07-21', false, 'date', true, '耗材'),
+    expiry('延長線保固', '2026-08-13', false, 'date', true, '保固'),
+    expiry('未到提醒期的耗材', '2026-07-22', false, 'date', true, '耗材'),
+    expiry('關閉提醒的保固', '2026-07-20', false, 'date', false, '保固'),
+  ] };
+  const items = await getExpiryItems(notion, 'expiry-db', '2026-07-14');
+  assert.deepEqual(items.map((item) => item.name), ['濾芯', '延長線保固']);
+  assert.deepEqual(items.map((item) => item.reminderDays), [7, 30]);
+});
+
 test('效期倒數與區塊符合 LINE 文字格式', () => {
   assert.equal(expiryCountdown(-2), '已過期 2 天');
   assert.equal(expiryCountdown(0), '今天到期');
@@ -52,17 +65,16 @@ test('效期倒數與區塊符合 LINE 文字格式', () => {
   assert.equal(expiryCountdown(6), '');
 
   const block = formatExpiryBlock([
-    { name: '豆腐', daysRemaining: -2 },
-    { name: '牛奶', daysRemaining: 0 },
-    { name: '優格', daysRemaining: 1 },
+    { name: '豆腐', type: '效期', reminderDays: 5, daysRemaining: -2 },
+    { name: '濾芯', type: '耗材', reminderDays: 7, daysRemaining: 6 },
+    { name: '家電', type: '保固', reminderDays: 30, daysRemaining: 20 },
   ]);
   assert.equal(block,
-    '【 效期／耗材／保固｜5 天內 】\n'
-    + '⌛ 豆腐（已過期 2 天）\n'
-    + '⌛ 牛奶（今天到期）\n'
-    + '⌛ 優格（剩 1 天）');
+    '【 期限提醒 】\n'
+    + '⌛ 豆腐（效期・已過期 2 天）\n'
+    + '🔄 濾芯（耗材・剩 6 天）\n'
+    + '🛡️ 家電（保固・剩 20 天）');
   assert.doesNotMatch(block, /🔴|🟠|🟡|🔵/);
-  assert.doesNotMatch(block, /・|已過期\n|5 天內\n/);
   assert.equal(formatExpiryBlock([]), '');
 });
 
@@ -80,7 +92,7 @@ test('效期關鍵字可查全部注意品項或只查已過期', async () => {
   );
   const json = JSON.stringify(message);
   assert.equal(message.type, 'flex');
-  assert.match(json, /⌛ 已過期/);
+  assert.match(json, /⏳ 已逾期/);
   assert.match(json, /豆腐/);
   assert.doesNotMatch(json, /遙遠品項/);
 });
@@ -92,7 +104,7 @@ test('手動查詢沒有結果時回覆空狀態', async () => {
   );
   const json = JSON.stringify(message);
   assert.equal(message.type, 'flex');
-  assert.match(json, /目前沒有需要注意的效期品項/);
+  assert.match(json, /目前沒有需要注意的期限項目/);
   assert.match(json, /查看全部/);
   assert.match(json, /僅看已過期/);
   assert.match(json, /重新整理/);
@@ -107,9 +119,9 @@ test('查看全部會顯示未處理品項，較遠日期改顯示實際日期',
   const items = await getExpiryItems(notion, 'expiry-db', '2026-09-15', { includeAll: true });
   assert.deepEqual(items.map((item) => item.name), ['昆布鹽', '薑茶包']);
   assert.equal(formatExpiryAll(items),
-    '【 全部未處理效期 】\n'
-    + '⌛ 昆布鹽（剩 1 天）\n'
-    + '⌛ 薑茶包（2027/12/08）');
+    '【 全部未處理期限 】\n'
+    + '⌛ 昆布鹽（效期・剩 1 天）\n'
+    + '⌛ 薑茶包（效期・2027/12/08）');
 
   const [message] = await handleCommand(
     { action: 'expiry_all' }, notion,
@@ -117,7 +129,7 @@ test('查看全部會顯示未處理品項，較遠日期改顯示實際日期',
   );
   const json = JSON.stringify(message);
   assert.equal(message.type, 'flex');
-  assert.match(json, /⌛ 全部效期/);
+  assert.match(json, /⏳ 全部期限/);
   assert.match(json, /昆布鹽/);
   assert.match(json, /薑茶包/);
   assert.match(json, /只看需注意/);
