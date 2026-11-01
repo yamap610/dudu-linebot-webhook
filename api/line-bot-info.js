@@ -1,3 +1,5 @@
+const { main: ensureLatestRichMenu, richMenu } = require('../scripts/setup-rich-menu');
+
 module.exports = async function lineBotInfo(req, res) {
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -11,6 +13,8 @@ module.exports = async function lineBotInfo(req, res) {
   }
 
   try {
+    const syncRichMenu = new URL(req.url, 'https://localhost').searchParams.get('sync') === 'rich-menu';
+    const syncedRichMenuId = syncRichMenu ? await ensureLatestRichMenu() : null;
     const response = await fetch('https://api.line.me/v2/bot/info', {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -19,11 +23,26 @@ module.exports = async function lineBotInfo(req, res) {
       res.status(502).json({ error: data.message || `LINE API ${response.status}` });
       return;
     }
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    const defaultResponse = await fetch('https://api.line.me/v2/bot/user/all/richmenu', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const defaultMenu = defaultResponse.ok ? await defaultResponse.json() : {};
+    let currentRichMenu = null;
+    if (defaultMenu.richMenuId) {
+      const menuResponse = await fetch(`https://api.line.me/v2/bot/richmenu/${defaultMenu.richMenuId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (menuResponse.ok) currentRichMenu = await menuResponse.json();
+    }
+    res.setHeader('Cache-Control', syncRichMenu ? 'no-store' : 'public, max-age=300');
     res.status(200).json({
       displayName: data.displayName,
       basicId: data.basicId,
       pictureUrl: data.pictureUrl,
+      desiredRichMenuName: richMenu.name,
+      syncedRichMenuId,
+      defaultRichMenuId: defaultMenu.richMenuId || null,
+      currentRichMenu,
     });
   } catch (error) {
     res.status(502).json({ error: error.message });
