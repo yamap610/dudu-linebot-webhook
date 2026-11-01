@@ -7,32 +7,32 @@ const IMAGE_PATH = process.env.RICH_MENU_IMAGE || path.resolve(__dirname, '..', 
 const richMenu = {
   size: { width: 2500, height: 1686 },
   selected: true,
-  name: '嘟嘟一家主選單｜更多工具箱｜20261029',
-  chatBarText: '小秘書幫幫我✨',
+  name: '嘟嘟一家功能選單 2026-07｜圖1-20261101',
+  chatBarText: '呼叫小秘書🙌🏻',
   areas: [
     {
       bounds: { x: 0, y: 0, width: 833, height: 843 },
-      action: { type: 'postback', data: 'action=bills', displayText: '待繳費' },
+      action: { type: 'message', text: '待辦' },
     },
     {
       bounds: { x: 833, y: 0, width: 833, height: 843 },
-      action: { type: 'postback', data: 'action=expiry', displayText: '效期提醒' },
+      action: { type: 'message', text: '待買' },
     },
     {
       bounds: { x: 1666, y: 0, width: 834, height: 843 },
-      action: { type: 'postback', data: 'action=calendar_menu', displayText: '行程查詢' },
+      action: { type: 'message', text: '待繳' },
     },
     {
       bounds: { x: 0, y: 843, width: 833, height: 843 },
-      action: { type: 'postback', data: 'action=list&type=todo', displayText: '待辦事項' },
+      action: { type: 'message', text: '效期' },
     },
     {
       bounds: { x: 833, y: 843, width: 833, height: 843 },
-      action: { type: 'postback', data: 'action=list&type=buy', displayText: '待買清單' },
+      action: { type: 'message', text: '行程' },
     },
     {
       bounds: { x: 1666, y: 843, width: 834, height: 843 },
-      action: { type: 'postback', data: 'action=more_menu', displayText: '更多' },
+      action: { type: 'message', text: '更多' },
     },
   ],
 };

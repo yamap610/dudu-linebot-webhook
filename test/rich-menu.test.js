@@ -5,15 +5,13 @@ const { moreMenuMessage } = require('../lib/bot');
 const { richMenu } = require('../scripts/setup-rich-menu');
 
 test('Rich Menu 六格對應日常與提醒入口', () => {
-  assert.deepEqual(richMenu.areas.map((area) => area.action.data), [
-    'action=bills',
-    'action=expiry',
-    'action=calendar_menu',
-    'action=list&type=todo',
-    'action=list&type=buy',
-    'action=more_menu',
+  assert.deepEqual(richMenu.areas.map((area) => area.action.text), [
+    '待辦', '待買', '待繳', '效期', '行程', '更多',
   ]);
+  assert.ok(richMenu.areas.every((area) => area.action.type === 'message'));
   assert.deepEqual(richMenu.size, { width: 2500, height: 1686 });
+  assert.equal(richMenu.chatBarText, '呼叫小秘書🙌🏻');
+  assert.equal(richMenu.selected, true);
 });
 
 test('更多功能只保留紀念日、垃圾分類與快速新增', () => {
