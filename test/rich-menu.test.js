@@ -14,14 +14,17 @@ test('Rich Menu 六格對應日常與提醒入口', () => {
   assert.equal(richMenu.selected, true);
 });
 
-test('更多功能只保留紀念日、垃圾分類與快速新增', () => {
-  const message = moreMenuMessage();
+test('更多功能包含 WebApp，快速新增維持最下方', () => {
+  const message = moreMenuMessage({ webappUrl: 'https://my-secretary-fawn.vercel.app/' });
   const actions = message.contents.footer.contents.map((item) => item.action);
-  assert.deepEqual(actions.map((action) => action.data), [
+  assert.deepEqual(actions.filter((action) => action.type === 'postback').map((action) => action.data), [
     'action=anniversaries',
     'action=waste_menu',
     'action=quick_add',
   ]);
+  assert.deepEqual(actions[2], {
+    type: 'uri', label: '🌐 開啟完整管理', uri: 'https://my-secretary-fawn.vercel.app/',
+  });
   assert.equal(actions.at(-1).label, '➕ 快速新增');
-  assert.doesNotMatch(JSON.stringify(message), /小百科|生活秘書/);
+  assert.doesNotMatch(JSON.stringify(message), /小百科|Notion/);
 });
