@@ -83,3 +83,32 @@ test('LINE 可新增每年重複且開啟提醒的紀念日', async () => {
   assert.deepEqual(created.properties['Line Bot 提醒'], { checkbox: true });
   assert.match(message.text, /每年重複提醒/);
 });
+
+test('LINE 可只輸入月日，Notion 自動新增年份未知欄位', async () => {
+  assert.deepEqual(parseTextCommand('新增紀念日月日｜生日｜朋友生日｜9-18'), {
+    action: 'anniversary_add_unknown_create', type: '生日', name: '朋友生日', monthDay: '09-18',
+  });
+  let schemaUpdate;
+  let created;
+  const notion = {
+    getDatabase: async () => ({ properties: {
+      名稱: { type: 'title' }, 日期: { type: 'date' }, 類型: { type: 'select' },
+      每年重複: { type: 'checkbox' }, 'Line Bot 提醒': { type: 'checkbox' },
+    } }),
+    updateDatabase: async (dbId, properties) => { schemaUpdate = { dbId, properties }; },
+    createPage: async (dbId, properties) => { created = { dbId, properties }; },
+  };
+  const [message] = await handleCommand({
+    action: 'anniversary_add_unknown_create', type: '生日', name: '朋友生日', monthDay: '09-18',
+  }, notion, { anniversaryDbId: 'anniversary-db' });
+  assert.equal(schemaUpdate.dbId, 'anniversary-db');
+  assert.deepEqual(schemaUpdate.properties, {
+    月日: { rich_text: {} }, 年份未知: { checkbox: {} },
+  });
+  assert.equal(created.properties['日期'], undefined);
+  assert.deepEqual(created.properties['月日'], { rich_text: [{ text: { content: '09-18' } }] });
+  assert.deepEqual(created.properties['年份未知'], { checkbox: true });
+  assert.deepEqual(created.properties['每年重複'], { checkbox: true });
+  assert.match(message.text, /年份未知/);
+  assert.match(message.text, /不顯示歲數／週年/);
+});

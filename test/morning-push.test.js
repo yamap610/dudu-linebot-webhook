@@ -128,15 +128,23 @@ test('紀念日依每年重複與 LINE 提醒開關篩選', async () => {
     anniversary('一次活動', '2026-09-18', '其他', false),
     anniversary('不同日期', '2024-09-19', '生日'),
     anniversary('不要提醒', '2024-09-18', '生日', true, false),
+    { properties: {
+      名稱: { type: 'title', title: [{ plain_text: '朋友生日' }] },
+      日期: { date: null }, 月日: { rich_text: [{ plain_text: '09-18' }] },
+      年份未知: { checkbox: true }, 類型: { select: { name: '生日' } },
+      每年重複: { checkbox: true }, 'Line Bot 提醒': { checkbox: true },
+    } },
   ] };
   const result = await getAnniversaryReminders(notion, 'anniversary-db', '2026-09-18');
-  assert.deepEqual(result.map((item) => item.name), ['嘟嘟生日', '結婚紀念日', '一次活動']);
+  assert.deepEqual(result.map((item) => item.name), ['嘟嘟生日', '結婚紀念日', '一次活動', '朋友生日']);
 
   const message = buildMorningMessage({ today: '2026-09-18', anniversaries: result });
   assert.match(message, /【 今日紀念日 】/);
   assert.match(message, /🎂 嘟嘟生日（2 歲）/);
   assert.match(message, /💞 結婚紀念日（3 週年）/);
   assert.match(message, /⭐ 一次活動/);
+  assert.match(message, /🎂 朋友生日/);
+  assert.doesNotMatch(message, /朋友生日（\d+ 歲）/);
 });
 
 test('明日預告顯示明日紀念日', async () => {

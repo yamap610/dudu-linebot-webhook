@@ -65,3 +65,24 @@ test('近期只顯示五個，顯示全部後以五個一頁左右滑動', () =>
   assert.equal(all.contents.contents.length, 2);
   assert.match(JSON.stringify(all), /重要日子 7/);
 });
+
+test('只知道月日的紀念日會每年提醒但不計算歲數', async () => {
+  const notion = { queryAll: async () => [{
+    id: 'unknown-year-anniversary',
+    properties: {
+      名稱: { title: [{ plain_text: '朋友生日' }] },
+      日期: { date: null },
+      月日: { rich_text: [{ plain_text: '09-18' }] },
+      年份未知: { checkbox: true },
+      類型: { select: { name: '生日' } },
+      每年重複: { checkbox: true },
+      'Line Bot 提醒': { checkbox: true },
+    },
+  }] };
+  const items = await getUpcomingAnniversaries(notion, { anniversaryDbId: 'db' }, '2026-09-17');
+  assert.equal(items[0].nextDate, '2026-09-18');
+  assert.equal(items[0].yearUnknown, true);
+  const rendered = JSON.stringify(anniversaryListMessage(items, '2026-09-17'));
+  assert.match(rendered, /朋友生日/);
+  assert.doesNotMatch(rendered, /歲/);
+});
