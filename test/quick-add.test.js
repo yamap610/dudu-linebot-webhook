@@ -13,6 +13,31 @@ test('快速新增包含期限提醒與紀念日', () => {
   assert.equal(actions[4].data, 'action=anniversary_add_menu');
 });
 
+test('待辦、待買、期限與紀念日的類型按鈕會直接開啟鍵盤', async () => {
+  for (const type of ['todo', 'buy']) {
+    const [menu] = await handleCommand({ action: 'add_menu', type }, {}, {});
+    const priorities = menu.quickReply.items.slice(0, 3).map((item) => item.action);
+    assert.ok(priorities.every((action) => action.inputOption === 'openKeyboard'));
+    assert.ok(priorities.every((action) => action.fillInText.includes(type === 'buy' ? '新增待買' : '新增待辦')));
+  }
+
+  const [expiryMenu] = await handleCommand({ action: 'expiry_add_menu' }, {}, {});
+  const expiryTypes = expiryMenu.quickReply.items.slice(0, 3).map((item) => item.action);
+  assert.ok(expiryTypes.every((action) => action.inputOption === 'openKeyboard'));
+  assert.deepEqual(expiryTypes.map((action) => action.fillInText), [
+    '新增期限｜效期｜', '新增期限｜耗材｜', '新增期限｜保固｜',
+  ]);
+  assert.deepEqual(await handleCommand({ action: 'expiry_add_type', type: '效期' }, {}, {}), []);
+
+  const [anniversaryMenu] = await handleCommand({ action: 'anniversary_add_menu' }, {}, {});
+  const anniversaryTypes = anniversaryMenu.quickReply.items.slice(0, 4).map((item) => item.action);
+  assert.ok(anniversaryTypes.every((action) => action.inputOption === 'openKeyboard'));
+  assert.deepEqual(anniversaryTypes.map((action) => action.fillInText), [
+    '新增紀念日｜生日｜', '新增紀念日｜紀念日｜', '新增紀念日｜節日｜', '新增紀念日｜其他｜',
+  ]);
+  assert.deepEqual(await handleCommand({ action: 'anniversary_add_type', type: '生日' }, {}, {}), []);
+});
+
 test('LINE 可新增期限類型並自行選擇是否提醒', async () => {
   assert.deepEqual(parseTextCommand('新增期限｜耗材｜濾芯'), {
     action: 'expiry_add_date', type: '耗材', name: '濾芯',
