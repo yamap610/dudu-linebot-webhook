@@ -40,14 +40,27 @@ test('本期已提早繳費時不再發送待繳提醒', async () => {
   const historyQuery = calls.find((call) => call.dbId === 'history-db').query;
   assert.deepEqual(historyQuery.filter.and, [
     { property: '產品', relation: { contains: 'federal-id' } },
-    { or: [
-      { property: '對應繳費期限', date: { equals: '2026-11-01' } },
-      { and: [
-        { property: '對應繳費期限', date: { is_empty: true } },
-        { property: '繳費日期', date: { on_or_after: '2026-10-02' } },
-        { property: '繳費日期', date: { on_or_before: '2026-10-30' } },
-      ] },
-    ] },
+    { property: '對應繳費期限', date: { equals: '2026-11-01' } },
+  ]);
+});
+
+test('舊繳費紀錄沒有對應期限時使用合法的第二次 Notion 查詢', async () => {
+  const historyQueries = [];
+  const notion = { queryAll: async (dbId, query) => {
+    if (dbId === 'bill-db') return [bill('信用卡費_聯邦', '2026-11-01', 30000, false, 'federal-id')];
+    historyQueries.push(query);
+    return historyQueries.length === 2 ? [{ id: 'legacy-payment' }] : [];
+  } };
+  const result = await getUpcomingBills(notion, {
+    billDbId: 'bill-db', billHistoryDbId: 'history-db',
+  }, '2026-10-30');
+  assert.deepEqual(result, []);
+  assert.equal(historyQueries.length, 2);
+  assert.deepEqual(historyQueries[1].filter.and, [
+    { property: '產品', relation: { contains: 'federal-id' } },
+    { property: '對應繳費期限', date: { is_empty: true } },
+    { property: '繳費日期', date: { on_or_after: '2026-10-02' } },
+    { property: '繳費日期', date: { on_or_before: '2026-10-30' } },
   ]);
 });
 
