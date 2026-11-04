@@ -41,14 +41,26 @@ test('待繳清單以 YYYYMM 簡短顯示期別', () => {
   assert.doesNotMatch(json, /10\/26更新/);
 });
 
-test('變動金額尚未更新到下一期時顯示警告與上期金額', () => {
+test('變動金額的下期帳單距離超過 30 天時不催更新也不能誤按繳費', () => {
   const json = JSON.stringify(bot.billsMessage([{
     id: '1', name: '信用卡費_星展', price: 7000,
     dueDate: '2026-12-09', amountPeriod: '202610', paused: false,
-  }], 'all', '2026-10-30'));
+  }], 'all', '2026-11-05'));
+  assert.match(json, /12\/09・下期尚未到更新時間/);
+  assert.match(json, /上期金額：\$7,000（202610）/);
+  assert.doesNotMatch(json, /金額待更新/);
+  assert.doesNotMatch(json, /action=paid_amount&id=1/);
+  assert.doesNotMatch(json, /12\/09 \$7,000/);
+});
+
+test('變動金額進入到期前 30 天才提示更新並開放繳費', () => {
+  const json = JSON.stringify(bot.billsMessage([{
+    id: '1', name: '信用卡費_星展', price: 7000,
+    dueDate: '2026-12-09', amountPeriod: '202610', paused: false,
+  }], 'all', '2026-11-09'));
   assert.match(json, /12\/09 ⚠️ 金額待更新/);
   assert.match(json, /上期金額：\$7,000（202610）/);
-  assert.doesNotMatch(json, /12\/09 \$7,000/);
+  assert.match(json, /action=paid_amount&id=1/);
 });
 
 test('預設只顯示本月與逾期項目，並可切換查看全部', () => {
