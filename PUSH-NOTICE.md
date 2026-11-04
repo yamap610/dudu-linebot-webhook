@@ -6,10 +6,12 @@
 
 `Authorization: Bearer <CRON_SECRET>`
 
-目前由 `vercel.json` 設定兩個每日排程（Vercel cron 使用 UTC）：
+目前沿用既有的 cron-job.org → GitHub Actions 排程：
 
-- `00:00 UTC`（台北時間 08:00）呼叫 `/api/morning-push`，提醒當日紀念日。
-- `13:00 UTC`（台北時間 21:00）呼叫 `/api/tomorrow-preview`，提醒隔日紀念日。
+- 台北時間 `09:00` 執行今日合併提醒。
+- 台北時間 `21:00` 執行明日合併預告。
+
+GitHub Actions 每次執行都會從 `yamap610/dudu-linebot-webhook` 的 `main` 分支取得最新版程式。請勿再於 Vercel 啟用相同端點的 Cron Jobs，以免重複推播。
 
 Vercel 環境變數需有既有的 Notion、Google Calendar、LINE 設定，另加 `CRON_SECRET`、`LINE_USER_ID` 與選用的 `LINE_USER_ID_2`。紀念日資料庫可用 `ANNIVERSARY_DB_ID` 覆蓋，預設為 `9dd10d10e0414e2593d16ec8f57ec8f4`。Notion Integration 必須有紀念日資料庫的讀取權限；只有勾選「Line Bot 提醒」且日期符合的紀念日會推播。效期管家預設讀取資料庫 `f40a3915e858492daa9a941ddccea34d`；如需切換資料庫，可設定 `EXPIRY_DB_ID`。舊的「每日帳單」與「每日行程」兩個排程應停用，以免重複推播。
 
@@ -19,7 +21,7 @@ Vercel 環境變數需有既有的 Notion、Google Calendar、LINE 設定，另�
 - `日期`：原始日期。
 - `類型`：生日、紀念日、節日或其他。
 - `每年重複`：勾選時以月／日判斷每年提醒。
-- `Line Bot 提醒`：只有勾選的項目會進入 21:00 前一日預告與 08:00 當日提醒。
+- `Line Bot 提醒`：只有勾選的項目會進入 21:00 前一日預告與 09:00 當日提醒。
 
 LINE Rich Menu 的「紀念日」可隨時查看近期項目，清單中的 `🔔／🔕` 會顯示目前提醒開關狀態。
 
