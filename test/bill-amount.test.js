@@ -63,6 +63,32 @@ test('變動金額進入到期前 30 天才提示更新並開放繳費', () => {
   assert.match(json, /action=paid_amount&id=1/);
 });
 
+test('舊訊息的繳費按鈕也不能提早新增下一期紀錄', async () => {
+  const pageId = 'a90447cd77218293b11b81d4fda86c3d';
+  let created = false;
+  const notion = {
+    queryAll: async (dbId) => (dbId === 'bill-db' ? [{
+      id: pageId,
+      properties: {
+        '名稱': { title: [{ plain_text: '信用卡費_星展' }] },
+        '下次繳費': { formula: { type: 'string', string: '2026-12-09' } },
+        '繳費週期': { select: { name: '月' } },
+        '價格': { number: 7000 },
+        '金額帳期': { rich_text: [{ plain_text: '202610' }] },
+        '暫停訂閱': { checkbox: false },
+        '準備取消': { checkbox: false },
+      },
+    }] : []),
+    createPage: async () => { created = true; },
+  };
+  const result = await bot.markBillPaid(
+    notion, { billDbId: 'bill-db', billHistoryDbId: 'history-db' },
+    pageId, 10000, '2026-12-09', new Date('2026-11-05T12:00:00+08:00'),
+  );
+  assert.equal(result.tooEarly, true);
+  assert.equal(created, false);
+});
+
 test('預設只顯示本月與逾期項目，並可切換查看全部', () => {
   const items = [
     { id: '1', name: '逾期帳單', price: 100, dueDate: '2026-06-30', paused: false },
