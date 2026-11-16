@@ -27,28 +27,32 @@ function todoBlock(checked = false) {
   };
 }
 
-test('待買有內容 checklist 時直接在 LINE 開啟清單', async () => {
+test('待買有內容 checklist 時可直接在 LINE 查看清單', async () => {
   const notion = {
     queryAll: async () => [page()],
     getBlockChildren: async () => assert.fail('清單頁不應逐筆讀取 Notion 內容'),
   };
   const [message] = await handleCommand({ action: 'list', type: 'buy' }, notion, { todoDbId: 'db' });
   const output = JSON.stringify(message);
-  assert.match(output, /開啟清單/);
+  assert.match(output, /查看內容清單/);
   assert.match(output, /"type":"postback"/);
   assert.match(output, new RegExp(`action=checklist&type=buy&id=${PAGE_ID.replaceAll('-', '')}`));
   assert.doesNotMatch(output, /https:\/\/notion\.so/);
 });
 
-test('沒有 checklist 時只保留完成按鈕', async () => {
+test('沒有 checklist 時只列項目並提供統一 App 管理按鈕', async () => {
   const notion = {
     queryAll: async () => [page('買牛奶', false)],
     getBlockChildren: async () => assert.fail('清單頁不應逐筆讀取 Notion 內容'),
   };
   const [message] = await handleCommand({ action: 'list', type: 'buy' }, notion, { todoDbId: 'db' });
   const output = JSON.stringify(message);
-  assert.doesNotMatch(output, /開啟清單/);
-  assert.match(output, /已買到/);
+  assert.doesNotMatch(output, /查看內容清單/);
+  assert.doesNotMatch(output, /已買到/);
+  assert.doesNotMatch(output, /complete_confirm/);
+  assert.match(output, /開啟 App 管理/);
+  assert.match(output, /my-secretary-fawn\.vercel\.app\/todo\?tab=s/);
+  assert.doesNotMatch(output, /[?&]item=/);
 });
 
 test('LINE 勾選 checklist 時不直接更新，改導向 Web App', async () => {
@@ -71,7 +75,7 @@ test('LINE 勾選 checklist 時不直接更新，改導向 Web App', async () =>
   assert.match(output, new RegExp(`/todo\\?tab=s&item=${PAGE_ID.replaceAll('-', '')}&action=edit`));
 });
 
-test('內容清單提供手動重新整理按鈕', async () => {
+test('內容清單只供查看並提供統一 App 管理按鈕', async () => {
   const notion = {
     getPage: async () => page(),
     getBlockChildren: async () => ({ results: [todoBlock()] }),
@@ -79,11 +83,14 @@ test('內容清單提供手動重新整理按鈕', async () => {
   const [message] = await handleCommand({ action: 'checklist', type: 'buy', id: PAGE_ID, page: '1' }, notion, {});
   const output = JSON.stringify(message);
   assert.match(output, /重新整理清單/);
-  assert.match(output, /查詢內容保留在 LINE/);
-  assert.match(output, /到 Web App 勾選/);
-  const selectAction = message.contents.body.contents.find((component) => component.type === 'box');
-  assert.equal(selectAction.contents.at(-1).type, 'text');
-  assert.equal(selectAction.contents.at(-1).size, 'xs');
+  assert.match(output, /完成、編輯與新增請至生活秘書 App 操作/);
+  assert.match(output, /開啟 App 管理/);
+  assert.match(output, /my-secretary-fawn\.vercel\.app\/todo\?tab=s/);
+  assert.doesNotMatch(output, /[?&]item=/);
+  const itemRow = message.contents.body.contents.find((component) =>
+    component.type === 'box' && component.contents?.some((content) => content.text === '☐ 雞蛋'));
+  const itemText = itemRow.contents.find((content) => content.text === '☐ 雞蛋');
+  assert.equal(itemText.action, undefined);
 });
 
 test('舊 checklist 按鈕不再嘗試更新 Notion block', async () => {

@@ -2,16 +2,21 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const bot = require('../lib/bot');
 
-test('繳費選單可選擇帳單並預填更新金額指令', () => {
+test('繳費清單只顯示內容並統一導向 App 管理', () => {
   const item = {
     id: 'a90447cd77218293b11b81d4fda86c3d', name: '電信費_台灣大哥大', price: 999,
     dueDate: '2026-07-20', amountPeriod: '202607', amountUpdatedDate: '2026-07-18', paused: false,
   };
   const billsJson = JSON.stringify(bot.billsMessage([item]));
-  assert.match(billsJson, /update_amount_menu/);
   assert.match(billsJson, /\$999（202607）/);
   assert.doesNotMatch(billsJson, /\$999・/);
-  assert.match(billsJson, /"label":"繳費"/);
+  assert.match(billsJson, /開啟 App 管理/);
+  assert.match(billsJson, /my-secretary-fawn\.vercel\.app\/todo\?tab=p/);
+  assert.doesNotMatch(billsJson, /update_amount_menu/);
+  assert.doesNotMatch(billsJson, /"label":"繳費"/);
+  assert.doesNotMatch(billsJson, /[?&]item=/);
+
+  // 舊文字指令仍保留相容性，但不再出現在新的清單介面。
   const menuJson = JSON.stringify(bot.updateAmountMenuMessage([item]));
   assert.match(menuJson, /更新金額 電信費_台灣大哥大 /);
   assert.match(menuJson, /openKeyboard/);
@@ -53,7 +58,7 @@ test('變動金額的下期帳單距離超過 30 天時不催更新也不能誤�
   assert.doesNotMatch(json, /12\/09 \$7,000/);
 });
 
-test('變動金額進入到期前 30 天才提示更新並開放繳費', () => {
+test('變動金額進入到期前 30 天會提示更新並統一導向 App', () => {
   const json = JSON.stringify(bot.billsMessage([{
     id: '1', name: '信用卡費_星展', price: 7000,
     dueDate: '2026-12-09', amountPeriod: '202610', paused: false,
@@ -61,7 +66,9 @@ test('變動金額進入到期前 30 天才提示更新並開放繳費', () => {
   assert.match(json, /12\/09 ⚠️ 金額待更新/);
   assert.match(json, /上期金額：\$7,000（202610）/);
   assert.match(json, /"type":"uri"/);
-  assert.match(json, /my-secretary-fawn\.vercel\.app\/todo\?tab=p&item=1&action=complete/);
+  assert.match(json, /my-secretary-fawn\.vercel\.app\/todo\?tab=p/);
+  assert.doesNotMatch(json, /[?&]item=/);
+  assert.doesNotMatch(json, /action=complete/);
 });
 
 test('舊訊息的繳費按鈕也不能提早新增下一期紀錄', async () => {
