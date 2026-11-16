@@ -60,7 +60,8 @@ test('變動金額進入到期前 30 天才提示更新並開放繳費', () => {
   }], 'all', '2026-11-09'));
   assert.match(json, /12\/09 ⚠️ 金額待更新/);
   assert.match(json, /上期金額：\$7,000（202610）/);
-  assert.match(json, /action=paid_amount&id=1/);
+  assert.match(json, /"type":"uri"/);
+  assert.match(json, /my-secretary-fawn\.vercel\.app\/todo\?tab=p&item=1&action=complete/);
 });
 
 test('舊訊息的繳費按鈕也不能提早新增下一期紀錄', async () => {
@@ -137,7 +138,7 @@ test('更新金額會修改 Notion 價格並回覆更新日期', async () => {
   assert.match(messages[0].text, /更新：\d{2}\/\d{2}/);
 });
 
-test('確認繳費時會顯示信用卡帳單期別與期限', async () => {
+test('舊的確認繳費操作改為導向 Web App，不再於 LINE 寫入', async () => {
   const pageId = 'a90447cd77218293b11b81d4fda86c3d';
   const notion = { queryAll: async () => [{
     id: pageId,
@@ -154,10 +155,9 @@ test('確認繳費時會顯示信用卡帳單期別與期限', async () => {
     action: 'paid_confirm', id: pageId, amount: '30000',
   }, notion, { billDbId: 'bill-db' });
   const json = JSON.stringify(message);
-  assert.match(json, /10 月帳單（繳費期限 11\/1）/);
-  assert.match(json, /是，登記此期已繳/);
-  assert.match(json, /不是，選其他期別/);
-  assert.match(json, /due=2026-11-01/);
+  assert.match(json, /前往 Web App 登記已繳/);
+  assert.match(json, new RegExp(`/todo\\?tab=p&item=${pageId}&action=complete`));
+  assert.doesNotMatch(json, /action=paid/);
 });
 
 test('登記已繳會按期別去重並寫入對應繳費期限', async () => {

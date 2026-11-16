@@ -51,7 +51,7 @@ test('沒有 checklist 時只保留完成按鈕', async () => {
   assert.match(output, /已買到/);
 });
 
-test('LINE 勾選 checklist 後立即回傳有確認狀態的最新清單', async () => {
+test('LINE 勾選 checklist 時不直接更新，改導向 Web App', async () => {
   let checked = false;
   const notion = {
     getPage: async () => page(),
@@ -64,12 +64,11 @@ test('LINE 勾選 checklist 後立即回傳有確認狀態的最新清單', asyn
   const messages = await handleCommand({
     action: 'checklist_toggle', type: 'buy', id: PAGE_ID, block: BLOCK_ID, checked: '1', page: '1',
   }, notion, {});
-  assert.equal(checked, true);
+  assert.equal(checked, false);
   assert.equal(messages.length, 1);
   const output = JSON.stringify(messages[0]);
-  assert.match(output, /☑ 已勾選：雞蛋/);
-  assert.match(output, /1\/1 項完成/);
-  assert.match(output, /☑ 雞蛋/);
+  assert.match(output, /前往 Web App 勾選/);
+  assert.match(output, new RegExp(`/todo\\?tab=s&item=${PAGE_ID.replaceAll('-', '')}&action=edit`));
 });
 
 test('內容清單提供手動重新整理按鈕', async () => {
@@ -80,23 +79,22 @@ test('內容清單提供手動重新整理按鈕', async () => {
   const [message] = await handleCommand({ action: 'checklist', type: 'buy', id: PAGE_ID, page: '1' }, notion, {});
   const output = JSON.stringify(message);
   assert.match(output, /重新整理清單/);
-  assert.match(output, /回傳最新清單/);
+  assert.match(output, /查詢內容保留在 LINE/);
+  assert.match(output, /到 Web App 勾選/);
   const selectAction = message.contents.body.contents.find((component) => component.type === 'box');
   assert.equal(selectAction.contents.at(-1).type, 'text');
   assert.equal(selectAction.contents.at(-1).size, 'xs');
 });
 
-test('拒絕更新不屬於該頁面的 block', async () => {
+test('舊 checklist 按鈕不再嘗試更新 Notion block', async () => {
   const notion = {
     getBlockChildren: async () => ({ results: [] }),
     updateBlock: async () => assert.fail('不應更新 block'),
   };
-  await assert.rejects(
-    () => handleCommand({
-      action: 'checklist_toggle', type: 'todo', id: PAGE_ID, block: BLOCK_ID, checked: '1', page: '1',
-    }, notion, {}),
-    /找不到這個清單項目/,
-  );
+  const [message] = await handleCommand({
+    action: 'checklist_toggle', type: 'todo', id: PAGE_ID, block: BLOCK_ID, checked: '1', page: '1',
+  }, notion, {});
+  assert.match(JSON.stringify(message), /\/todo\?item=.*&action=edit/);
 });
 
 test('LINE 新增待辦可選日期並寫入 Notion', async () => {

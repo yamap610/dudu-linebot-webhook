@@ -261,7 +261,7 @@ test('急件未設定日期時不顯示多餘文字', async () => {
   assert.doesNotMatch(message, /未設定日期/);
 });
 
-test('早晨待繳項目提供直接登記已繳按鈕', async () => {
+test('早晨待繳項目保留提醒文字並改由 Web App 登記已繳', async () => {
   const notion = { queryAll: async () => [bill('網路費', '2026-07-16', 999, false, 'bill-page-id')] };
   const calendarClient = { listEvents: async () => [] };
   const message = await createMorningMessage({
@@ -273,10 +273,9 @@ test('早晨待繳項目提供直接登記已繳按鈕', async () => {
   });
   assert.equal(message.type, 'text');
   assert.deepEqual(message.quickReply.items[0].action, {
-    type: 'postback',
+    type: 'uri',
     label: '登記已繳｜網路費',
-    data: 'action=paid_amount&id=bill-page-id',
-    displayText: '登記已繳｜網路費',
+    uri: 'https://my-secretary-fawn.vercel.app/todo?tab=p&item=billpageid&action=complete',
   });
 });
 
