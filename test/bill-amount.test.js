@@ -22,6 +22,16 @@ test('繳費清單只顯示內容並統一導向 App 管理', () => {
   assert.match(menuJson, /openKeyboard/);
 });
 
+test('累積帳單未達門檻時顯示累積中而不是催繳', () => {
+  const json = JSON.stringify(bot.billsMessage([{
+    id: 'fet', name: '電信費_遠傳', price: 841, dueDate: '', paused: false,
+    accumulating: true, threshold: 1000,
+  }], 'month', '2026-11-17'));
+  assert.match(json, /🟡 累積中/);
+  assert.match(json, /\$841／\$1,000/);
+  assert.doesNotMatch(json, /今天到期|逾期/);
+});
+
 test('固定金額不顯示更新日，未來到期日不顯示年份', () => {
   const json = JSON.stringify(bot.billsMessage([{
     id: 'a90447cd77218293b11b81d4fda86c3d', name: 'Netflix', price: 390,

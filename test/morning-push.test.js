@@ -25,6 +25,20 @@ test('待繳包含逾期與未來 3 天，排除較晚及暫停項目', async ()
   assert.deepEqual(result.map((item) => item.name), ['已過期', '今天', '三天內']);
 });
 
+test('累積帳單未達 1000 元時不列入每日待繳提醒', async () => {
+  const under = bill('電信費_遠傳', '2026-07-15', 841);
+  under.properties['累積計費'] = { checkbox: true };
+  under.properties['累積門檻'] = { number: 1000 };
+  under.properties['本期繳費期限'] = { date: { start: '2026-07-15' } };
+  const reached = bill('電信費_遠傳（二）', '2026-07-15', 1440);
+  reached.properties['累積計費'] = { checkbox: true };
+  reached.properties['累積門檻'] = { number: 1000 };
+  reached.properties['本期繳費期限'] = { date: { start: '2026-07-15' } };
+  const notion = { queryAll: async () => [under, reached] };
+  const result = await getUpcomingBills(notion, 'db', '2026-07-14');
+  assert.deepEqual(result.map((item) => item.price), [1440]);
+});
+
 test('本期已提早繳費時不再發送待繳提醒', async () => {
   const calls = [];
   const notion = { queryAll: async (dbId, query) => {
