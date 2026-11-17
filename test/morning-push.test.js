@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   getUpcomingBills, getTodoReminders, shouldRemindTodo, getAnniversaryReminders,
-  buildMorningMessage, createMorningMessage,
+  getAccumulatedBillNotices, buildMorningMessage, createMorningMessage,
 } = require('../lib/morning-push');
 
 function bill(name, dueDate, price = 100, paused = false, id = name) {
@@ -12,6 +12,24 @@ function bill(name, dueDate, price = 100, paused = false, id = name) {
     價格: { number: price },
     繳費週期: { select: { name: '月' } },
     暫停訂閱: { checkbox: paused },
+  } };
+}
+
+function accumulatedBill(price, dueDate = '', id = 'fet-id') {
+  const page = bill('電信費_遠傳', '', price, false, id);
+  page.properties['累積計費'] = { checkbox: true };
+  page.properties['累積門檻'] = { number: 1000 };
+  page.properties['本期繳費期限'] = { date: dueDate ? { start: dueDate } : null };
+  return page;
+}
+
+function billMonth(paymentId, month, amount, status = '累積中') {
+  return { id: `${paymentId}-${month}`, properties: {
+    項目: { type: 'title', title: [{ plain_text: `遠傳 ${month}` }] },
+    帳單月份: { rich_text: [{ plain_text: month }] },
+    金額: { number: amount },
+    狀態: { select: { name: status } },
+    支出項目: { relation: [{ id: paymentId }] },
   } };
 }
 
@@ -37,6 +55,53 @@ test('累積帳單未達 1000 元時不列入每日待繳提醒', async () => {
   const notion = { queryAll: async () => [under, reached] };
   const result = await getUpcomingBills(notion, 'db', '2026-07-14');
   assert.deepEqual(result.map((item) => item.price), [1440]);
+});
+
+test('情境 a：累積 242、門檻 1000、沒有期限，不發任何提醒', async () => {
+  const notion = { queryAll: async (dbId) => (dbId === 'bill-db' ? [accumulatedBill(242)] : []) };
+  const config = { billDbId: 'bill-db', billMonthsDbId: 'months-db' };
+  assert.deepEqual(await getUpcomingBills(notion, config, '2026-11-16'), []);
+  assert.deepEqual(await getAccumulatedBillNotices(notion, config, '2026-11-16'), []);
+});
+
+test('情境 b：累積 1042、門檻 1000、沒有期限，只在週一溫和提醒一次', async () => {
+  const months = [billMonth('fet-id', '2026/10', 242), billMonth('fet-id', '2026/11', 800)];
+  const notion = { queryAll: async (dbId) => (dbId === 'bill-db' ? [accumulatedBill(1042)] : months) };
+  const config = { billDbId: 'bill-db', billMonthsDbId: 'months-db' };
+  assert.deepEqual(await getUpcomingBills(notion, config, '2026-11-16'), []);
+  const monday = await getAccumulatedBillNotices(notion, config, '2026-11-16');
+  assert.equal(monday.length, 1);
+  assert.deepEqual(monday[0].months, [
+    { month: '2026/10', amount: 242 },
+    { month: '2026/11', amount: 800 },
+  ]);
+  assert.deepEqual(await getAccumulatedBillNotices(notion, config, '2026-11-17'), []);
+  assert.deepEqual(await getAccumulatedBillNotices(notion, config, '2026-11-16', false), []);
+  const text = buildMorningMessage({ today: '2026-11-16', accumulatedBillNotices: monday });
+  assert.match(text, /遠傳累積已達 NT\$1,042/);
+  assert.match(text, /收到帳單後請到 App 填寫繳費期限/);
+  assert.match(text, /2026\/10 NT\$242[\s\S]*2026\/11 NT\$800[\s\S]*合計 NT\$1,042/);
+});
+
+test('情境 c：累積 1042、期限是 3 天後，套用每日催繳並列出月份明細', async () => {
+  const months = [billMonth('fet-id', '2026/10', 242), billMonth('fet-id', '2026/11', 800)];
+  const notion = { queryAll: async (dbId) => (dbId === 'bill-db'
+    ? [accumulatedBill(1042, '2026-11-19')]
+    : months) };
+  const bills = await getUpcomingBills(notion, {
+    billDbId: 'bill-db', billMonthsDbId: 'months-db',
+  }, '2026-11-16');
+  assert.equal(bills.length, 1);
+  const text = buildMorningMessage({ today: '2026-11-16', bills });
+  assert.match(text, /3 天後到期/);
+  assert.match(text, /2026\/10 NT\$242[\s\S]*2026\/11 NT\$800[\s\S]*合計 NT\$1,042/);
+});
+
+test('情境 d：一般帳單維持原本 3 天內提醒行為', async () => {
+  const notion = { queryAll: async () => [bill('一般帳單', '2026-11-19', 500)] };
+  const bills = await getUpcomingBills(notion, { billDbId: 'bill-db' }, '2026-11-16');
+  assert.deepEqual(bills.map((item) => item.name), ['一般帳單']);
+  assert.equal(bills[0].months, undefined);
 });
 
 test('本期已提早繳費時不再發送待繳提醒', async () => {
