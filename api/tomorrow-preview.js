@@ -12,7 +12,7 @@ module.exports = async function tomorrowPreview(req, res) {
 
   try {
     const config = getConfig();
-    config.lineUserIds = [process.env.LINE_USER_ID, process.env.LINE_USER_ID_2].filter(Boolean);
+    config.lineUserIds = [process.env.LINE_USER_ID].filter(Boolean);
     if (!config.lineToken || !config.notionToken || !config.calendarId || !config.googleServiceAccountJson) {
       return res.status(500).send('configuration error');
     }

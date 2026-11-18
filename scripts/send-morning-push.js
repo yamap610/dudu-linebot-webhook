@@ -3,7 +3,7 @@ const { createMorningMessage, pushLine } = require('../lib/morning-push');
 
 async function main() {
   const config = getConfig();
-  config.lineUserIds = [process.env.LINE_USER_ID, process.env.LINE_USER_ID_2].filter(Boolean);
+  config.lineUserIds = [process.env.LINE_USER_ID].filter(Boolean);
   if (!config.lineToken || !config.notionToken || !config.calendarId || !config.googleServiceAccountJson) {
     throw new Error('缺少今日合併日報所需設定');
   }

@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   getUpcomingBills, getTodoReminders, shouldRemindTodo, getAnniversaryReminders,
-  getAccumulatedBillNotices, buildMorningMessage, createMorningMessage,
+  getAccumulatedBillNotices, buildMorningMessage, createMorningMessage, pushLine,
 } = require('../lib/morning-push');
 
 function bill(name, dueDate, price = 100, paused = false, id = name) {
@@ -310,9 +310,11 @@ test('只取得未完成且今天需要提醒的待辦待買', async () => {
   const result = await getTodoReminders(notion, 'db', '2026-07-29');
   assert.deepEqual(result.map((item) => item.name), ['回桃園待辦', '明天要買']);
   const message = buildMorningMessage({ today: '2026-07-29', todos: result });
-  assert.match(message, /待辦／待買提醒/);
-  assert.match(message, /回桃園待辦（3 天後）/);
-  assert.match(message, /明天要買（明天）/);
+  assert.match(message, /【 待買 】/);
+  assert.match(message, /・明天要買（明天）/);
+  assert.match(message, /【 待辦 】/);
+  assert.match(message, /・回桃園待辦（3 天後）/);
+  assert.doesNotMatch(message, /✅|🛒|🔥|⭐/);
 });
 
 test('逾期未完成項目每天顯示逾期天數', async () => {
@@ -336,7 +338,7 @@ test('急件未設定日期時不顯示多餘文字', async () => {
   } }] };
   const todos = await getTodoReminders(notion, 'db', '2026-07-19');
   const message = buildMorningMessage({ today: '2026-07-19', todos });
-  assert.match(message, /✅ 🔥 整理嬰兒用品/);
+  assert.match(message, /【 待辦 】\n・整理嬰兒用品/);
   assert.doesNotMatch(message, /未設定日期/);
 });
 
@@ -357,6 +359,20 @@ test('早晨提醒只提供一個開啟 App 處理按鈕', async () => {
     label: '開啟 App 處理',
     uri: 'https://my-secretary-fawn.vercel.app/',
   });
+});
+
+test('每日小叮嚀即使保留第二個帳號也只推播給主要收件人', async () => {
+  const recipients = [];
+  const fetchImpl = async (_url, options) => {
+    recipients.push(JSON.parse(options.body).to);
+    return { ok: true };
+  };
+  const sent = await pushLine('測試提醒', {
+    lineToken: 'token',
+    lineUserIds: ['primary-user', 'secondary-user'],
+  }, fetchImpl);
+  assert.equal(sent, 1);
+  assert.deepEqual(recipients, ['primary-user']);
 });
 
 test('21:00 預告以明天為基準合併行程、待繳與待辦', async () => {
@@ -386,7 +402,7 @@ test('21:00 預告以明天為基準合併行程、待繳與待辦', async () =>
   assert.match(message.text, /【 行程 】/);
   assert.match(message.text, /【 待繳提醒｜逾期／3 天內 】/);
   assert.match(message.text, /信用卡費（2 天後到期）/);
-  assert.match(message.text, /【 待辦／待買提醒 】/);
+  assert.match(message.text, /【 待辦 】/);
   assert.match(message.text, /回桃園待辦（明天）/);
 });
 
