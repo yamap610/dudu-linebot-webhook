@@ -13,6 +13,8 @@
 
 GitHub Actions 每次執行都會從 `yamap610/dudu-linebot-webhook` 的 `main` 分支取得最新版程式。請勿再於 Vercel 啟用相同端點的 Cron Jobs，以免重複推播。
 
+正式的 09:00 今日小叮嚀與 21:00 明日預告使用 Flex 卡片呈現，標題分別為 `☀️ 今日小叮嚀` 與 `🌙 明日小叮嚀`。資料來源與提醒規則維持不變；若單張卡片 JSON 超過 LINE 的 30 KB 限制，會自動退回原本純文字格式，避免整則推播失敗。
+
 Vercel 環境變數需有既有的 Notion、Google Calendar、LINE 設定，另加 `CRON_SECRET`、`LINE_USER_ID` 與選用的 `LINE_USER_ID_2`。正式的今日小叮嚀與明日預告會推播給所有已設定的收件人；人工版面測試則只發給主要 `LINE_USER_ID`。紀念日資料庫可用 `ANNIVERSARY_DB_ID` 覆蓋，預設為 `9dd10d10e0414e2593d16ec8f57ec8f4`。Notion Integration 必須有紀念日資料庫的讀取權限；只有勾選「Line Bot 提醒」且日期符合的紀念日會推播。效期管家預設讀取資料庫 `f40a3915e858492daa9a941ddccea34d`；如需切換資料庫，可設定 `EXPIRY_DB_ID`。舊的「每日帳單」與「每日行程」兩個排程應停用，以免重複推播。
 
 紀念日資料需要以下欄位：

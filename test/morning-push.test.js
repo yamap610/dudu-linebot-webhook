@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   getUpcomingBills, getTodoReminders, shouldRemindTodo, getAnniversaryReminders,
-  getAccumulatedBillNotices, buildMorningMessage, createMorningMessage, pushLine,
+  getAccumulatedBillNotices, buildMorningMessage, buildMorningFlexMessage, createMorningMessage, pushLine,
 } = require('../lib/morning-push');
 
 function bill(name, dueDate, price = 100, paused = false, id = name) {
@@ -255,8 +255,8 @@ test('明日預告顯示明日紀念日', async () => {
     weatherData: null,
     dayOffset: 1,
   });
-  assert.match(message.text, /【 明日紀念日 】/);
-  assert.match(message.text, /💞 家庭日（6 週年）/);
+  assert.match(JSON.stringify(message), /明日紀念日/);
+  assert.match(JSON.stringify(message), /💞 家庭日（6 週年）/);
 });
 
 test('每日提醒有資料才顯示效期、耗材與保固區塊', () => {
@@ -311,9 +311,9 @@ test('只取得未完成且今天需要提醒的待辦待買', async () => {
   assert.deepEqual(result.map((item) => item.name), ['回桃園待辦', '明天要買']);
   const message = buildMorningMessage({ today: '2026-07-29', todos: result });
   assert.match(message, /【 待買 】/);
-  assert.match(message, /・明天要買（明天）/);
+  assert.match(message, /明天要買（明天）/);
   assert.match(message, /【 待辦 】/);
-  assert.match(message, /・回桃園待辦（3 天後）/);
+  assert.match(message, /回桃園待辦（3 天後）/);
   assert.doesNotMatch(message, /✅|🛒|🔥|⭐/);
 });
 
@@ -338,11 +338,11 @@ test('急件未設定日期時不顯示多餘文字', async () => {
   } }] };
   const todos = await getTodoReminders(notion, 'db', '2026-07-19');
   const message = buildMorningMessage({ today: '2026-07-19', todos });
-  assert.match(message, /【 待辦 】\n・整理嬰兒用品/);
+  assert.match(message, /【 待辦 】\n整理嬰兒用品/);
   assert.doesNotMatch(message, /未設定日期/);
 });
 
-test('早晨提醒只提供一個開啟 App 處理按鈕', async () => {
+test('早晨提醒使用 Flex 卡片並只提供一個開啟 App 處理按鈕', async () => {
   const notion = { queryAll: async () => [bill('網路費', '2026-07-16', 999, false, 'bill-page-id')] };
   const calendarClient = { listEvents: async () => [] };
   const message = await createMorningMessage({
@@ -352,13 +352,27 @@ test('早晨提醒只提供一個開啟 App 處理按鈕', async () => {
     calendarClient,
     weatherData: null,
   });
-  assert.equal(message.type, 'text');
-  assert.equal(message.quickReply.items.length, 1);
-  assert.deepEqual(message.quickReply.items[0].action, {
+  assert.equal(message.type, 'flex');
+  assert.equal(message.altText, '☀️ 今日小叮嚀｜7/14（二）');
+  assert.equal(message.contents.header.contents[0].text, '☀️ 今日小叮嚀');
+  assert.deepEqual(message.contents.footer.contents[0].action, {
     type: 'uri',
     label: '開啟 App 處理',
     uri: 'https://my-secretary-fawn.vercel.app/',
   });
+});
+
+test('Flex 卡片將待辦逾期標成紅色小字且不加項目符號', () => {
+  const text = buildMorningMessage({
+    today: '2026-08-03',
+    todos: [{ name: '整理行李', type: '✅ 待辦事項', priority: '中', dueDate: '2026-08-01' }],
+  });
+  const message = buildMorningFlexMessage(text, '☀️ 今日小叮嚀');
+  const json = JSON.stringify(message);
+  assert.match(json, /整理行李/);
+  assert.match(json, /逾期 2 天/);
+  assert.match(json, /#D85C5C/);
+  assert.doesNotMatch(json, /・整理行李/);
 });
 
 test('正式每日小叮嚀會推播給所有設定的收件人', async () => {
@@ -398,12 +412,15 @@ test('21:00 預告以明天為基準合併行程、待繳與待辦', async () =>
     weatherData: { line: '台北 26–33°C｜降雨 100%', reminder: '☂️ 明天容易下雨，出門記得帶傘喔！' },
     dayOffset: 1,
   });
-  assert.match(message.text, /明日小叮嚀｜7\/19/);
-  assert.match(message.text, /【 行程 】/);
-  assert.match(message.text, /【 待繳提醒｜逾期／3 天內 】/);
-  assert.match(message.text, /信用卡費（2 天後到期）/);
-  assert.match(message.text, /【 待辦 】/);
-  assert.match(message.text, /回桃園待辦（明天）/);
+  const json = JSON.stringify(message);
+  assert.equal(message.type, 'flex');
+  assert.equal(message.altText, '🌙 明日小叮嚀｜7/19（日）');
+  assert.match(json, /行程/);
+  assert.match(json, /待繳提醒｜逾期／3 天內/);
+  assert.match(json, /信用卡費（2 天後到期）/);
+  assert.match(json, /待辦/);
+  assert.match(json, /回桃園待辦/);
+  assert.match(json, /明天/);
 });
 
 test('21:00 預告沒有行程時顯示明天沒有行程', () => {
