@@ -361,7 +361,7 @@ test('早晨提醒只提供一個開啟 App 處理按鈕', async () => {
   });
 });
 
-test('每日小叮嚀即使保留第二個帳號也只推播給主要收件人', async () => {
+test('正式每日小叮嚀會推播給所有設定的收件人', async () => {
   const recipients = [];
   const fetchImpl = async (_url, options) => {
     recipients.push(JSON.parse(options.body).to);
@@ -371,8 +371,8 @@ test('每日小叮嚀即使保留第二個帳號也只推播給主要收件人',
     lineToken: 'token',
     lineUserIds: ['primary-user', 'secondary-user'],
   }, fetchImpl);
-  assert.equal(sent, 1);
-  assert.deepEqual(recipients, ['primary-user']);
+  assert.equal(sent, 2);
+  assert.deepEqual(recipients, ['primary-user', 'secondary-user']);
 });
 
 test('21:00 預告以明天為基準合併行程、待繳與待辦', async () => {
